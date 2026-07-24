@@ -5,9 +5,10 @@ import { useState } from "react";
 interface LoginMobileProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   loading: boolean;
+  error?: string | null;
 }
 
-export default function LoginMobile({ onSubmit, loading }: LoginMobileProps) {
+export default function LoginMobile({ onSubmit, loading, error }: LoginMobileProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -166,6 +167,19 @@ export default function LoginMobile({ onSubmit, loading }: LoginMobileProps) {
 
             {/* Submit */}
             <div className="pt-2">
+              {error && (
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "#ba1a1a",
+                    marginBottom: "12px",
+                    letterSpacing: "0.02em",
+                  }}
+                  role="alert"
+                >
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={loading}

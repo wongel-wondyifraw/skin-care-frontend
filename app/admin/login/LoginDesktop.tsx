@@ -5,9 +5,10 @@ import { useState } from "react";
 interface LoginDesktopProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   loading: boolean;
+  error?: string | null;
 }
 
-export default function LoginDesktop({ onSubmit, loading }: LoginDesktopProps) {
+export default function LoginDesktop({ onSubmit, loading, error }: LoginDesktopProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -236,6 +237,19 @@ export default function LoginDesktop({ onSubmit, loading }: LoginDesktopProps) {
               </div>
 
               {/* Submit */}
+              {error && (
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "#ba1a1a",
+                    letterSpacing: "0.02em",
+                    marginTop: "-8px",
+                  }}
+                  role="alert"
+                >
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={loading}

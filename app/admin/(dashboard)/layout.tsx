@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const navItems = [
   {
@@ -94,6 +95,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [adminName, setAdminName] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("adminUser");
+      if (raw) {
+        const user = JSON.parse(raw) as { name: string };
+        setAdminName(user.name);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "#f9f9f9" }}>
@@ -227,25 +241,39 @@ export default function DashboardLayout({
           >
             {navItems.find((n) => n.href === pathname)?.label ?? "Admin"}
           </span>
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              backgroundColor: "#fff8e7",
-              border: "1px solid #d0c5af",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            aria-label="Admin user"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="#735c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: "18px", height: "18px" }} aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+          <div className="flex items-center gap-3">
+            {adminName && (
+              <span
+                style={{
+                  fontSize: "13px",
+                  color: "#4d4635",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {adminName}
+              </span>
+            )}
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                backgroundColor: "#fff8e7",
+                border: "1px solid #d0c5af",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+              aria-label={adminName || "Admin user"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="#735c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ width: "18px", height: "18px" }} aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
           </div>
         </header>
 
@@ -268,25 +296,43 @@ export default function DashboardLayout({
           >
             Meadf Skin Care
           </span>
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              backgroundColor: "#fff8e7",
-              border: "1px solid #d0c5af",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            aria-label="Admin user"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="#735c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: "16px", height: "16px" }} aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+          <div className="flex items-center gap-2">
+            {adminName && (
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "#4d4635",
+                  letterSpacing: "0.02em",
+                  maxWidth: "100px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {adminName}
+              </span>
+            )}
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                backgroundColor: "#fff8e7",
+                border: "1px solid #d0c5af",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+              aria-label={adminName || "Admin user"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="#735c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ width: "16px", height: "16px" }} aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
           </div>
         </header>
 
