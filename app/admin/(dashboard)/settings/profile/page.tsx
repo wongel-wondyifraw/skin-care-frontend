@@ -40,6 +40,7 @@ const btnStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "background-color 0.2s ease",
   fontFamily: "inherit",
+  borderRadius: "10px",
 };
 
 export default function ProfilePage() {

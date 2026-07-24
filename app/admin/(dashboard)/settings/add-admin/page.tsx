@@ -116,6 +116,7 @@ export default function AddAdminPage() {
               opacity: busy ? 0.6 : 1,
               transition: "background-color 0.2s ease",
               fontFamily: "inherit",
+              borderRadius: "10px",
             }}
             onMouseEnter={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#735c00"; }}
             onMouseLeave={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1a1a1a"; }}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../../../../lib/api";
+import ConfirmModal from "../../../../../components/ConfirmModal";
 
 interface SkinType {
   id: string;
@@ -44,6 +45,7 @@ export default function SkinTypesPage() {
   const [addStatus, setAddStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SkinType | null>(null);
 
   const loadSkins = useCallback(async () => {
     setLoading(true);
@@ -80,13 +82,19 @@ export default function SkinTypesPage() {
     }
   }
 
-  async function handleDelete(skin: SkinType) {
-    if (!confirm(`Delete skin type "${skin.name}"?`)) return;
-    setDeletingId(skin.id);
+  function handleDelete(skin: SkinType) {
+    setDeleteTarget(skin);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
     try {
-      await apiFetch(`/skin-types/${skin.id}`, { method: "DELETE" });
-      setSkins((prev) => prev.filter((s) => s.id !== skin.id));
+      await apiFetch(`/skin-types/${deleteTarget.id}`, { method: "DELETE" });
+      setSkins((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err: unknown) {
+      setDeleteTarget(null);
       alert(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
       setDeletingId(null);
@@ -157,6 +165,7 @@ export default function SkinTypesPage() {
                 opacity: addBusy ? 0.6 : 1,
                 transition: "background-color 0.2s ease",
                 fontFamily: "inherit",
+                borderRadius: "10px",
               }}
               onMouseEnter={(e) => { if (!addBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#735c00"; }}
               onMouseLeave={(e) => { if (!addBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1a1a1a"; }}
@@ -196,6 +205,7 @@ export default function SkinTypesPage() {
                   backgroundColor: "#ffffff",
                   border: "1px solid #e8e8e8",
                   gap: "16px",
+                  borderRadius: "12px",
                 }}
               >
                 <div style={{ minWidth: 0 }}>
@@ -236,6 +246,17 @@ export default function SkinTypesPage() {
           </ul>
         )}
       </section>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Skin Type"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        busy={!!deletingId}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
