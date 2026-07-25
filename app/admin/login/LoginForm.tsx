@@ -39,6 +39,12 @@ export default function LoginForm() {
       localStorage.setItem("adminToken", data.accessToken);
       localStorage.setItem("adminUser", JSON.stringify(data.admin));
 
+      // Write the token to a cookie so middleware can read it server-side
+      // and redirect unauthenticated users before the page renders.
+      // SameSite=Strict keeps it first-party only; no HttpOnly so JS can clear it on sign-out.
+      const maxAge = 60 * 60 * 24 * 7; // 7 days — matches JWT_EXPIRES_IN
+      document.cookie = `adminToken=${data.accessToken}; path=/; max-age=${maxAge}; SameSite=Strict`;
+
       router.push("/admin/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
