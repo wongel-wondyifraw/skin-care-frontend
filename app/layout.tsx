@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Meadf Skin Care | Admin",
-  description: "Meadf Skin Care administration portal",
+  title: "Medaf Skin Care | Admin",
+  description: "Medaf Skin Care administration portal",
 };
 
 export default function RootLayout({

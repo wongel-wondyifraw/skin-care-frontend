@@ -103,7 +103,7 @@ export default function Sidebar({
       <aside className="hidden lg:flex flex-col w-60 min-w-[240px] bg-white border-r border-[#d0c5af] sticky top-0 h-screen">
         <div className="px-6 pt-8 pb-7 border-b border-[#d0c5af]">
           <span className="uppercase text-base font-medium text-[#735c00] tracking-[0.2em]">
-            Meadf Skin Care
+            Medaf Skin Care
           </span>
         </div>
 

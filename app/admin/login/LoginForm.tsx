@@ -66,7 +66,7 @@ export default function LoginForm() {
           {/* Logo / brand */}
           <div className="flex flex-col items-center mb-10 lg:mb-12">
             <h1 className="uppercase text-2xl lg:text-3xl font-medium text-[#735c00] tracking-[0.2em] lg:tracking-[0.3em] text-center">
-              Meadf Skin Care
+              Medaf Skin Care
             </h1>
           </div>
 

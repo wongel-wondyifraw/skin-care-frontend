@@ -36,7 +36,7 @@ export default function TopBar({ adminName }: { adminName: string }) {
       {/* Mobile top bar */}
       <header className="flex lg:hidden items-center justify-between px-5 h-14 bg-white border-b border-[#d0c5af] sticky top-0 z-10">
         <span className="uppercase text-[15px] font-medium text-[#735c00] tracking-[0.2em]">
-          Meadf Skin Care
+          Medaf Skin Care
         </span>
         <div className="flex items-center gap-2">
           {adminName && (
