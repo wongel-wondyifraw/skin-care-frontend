@@ -28,7 +28,14 @@ export async function apiFetch<T>(
     throw new Error(msg);
   }
 
-  // 204 No Content
-  if (res.status === 204) return undefined as T;
+  // No body — 204 No Content or empty 200
+  if (
+    res.status === 204 ||
+    res.headers.get("content-length") === "0" ||
+    !res.headers.get("content-type")?.includes("application/json")
+  ) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
