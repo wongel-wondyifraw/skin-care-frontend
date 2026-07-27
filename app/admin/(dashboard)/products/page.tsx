@@ -26,6 +26,7 @@ interface Product {
   skinTypeId?: string | null;
   skinType?: SkinType | null;
   stock: number;
+  price: number;
   createdAt: string;
 }
 
@@ -46,7 +47,7 @@ export default function ProductsPage() {
 
   // ── Create Modal ──
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0" });
+  const [form, setForm] = useState({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +55,7 @@ export default function ProductsPage() {
 
   // ── Edit Modal ──
   const [editTarget, setEditTarget] = useState<Product | null>(null);
-  const [editForm, setEditForm] = useState({ stock: "0", categoryId: "", skinTypeId: "" });
+  const [editForm, setEditForm] = useState({ stock: "0", price: "", categoryId: "", skinTypeId: "" });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -106,7 +107,7 @@ export default function ProductsPage() {
 
   // ── Create ──
   function openModal() {
-    setForm({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0" });
+    setForm({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
     setImageFile(null);
     setImagePreview(null);
     setFormError(null);
@@ -148,6 +149,7 @@ export default function ProductsPage() {
           categoryId: form.categoryId || undefined,
           skinTypeId: form.skinTypeId || undefined,
           stock: parseInt(form.stock, 10) || 0,
+          price: parseFloat(form.price) || 0,
         }),
       });
       setProducts((prev) => [created, ...prev]);
@@ -165,6 +167,7 @@ export default function ProductsPage() {
     setEditTarget(prod);
     setEditForm({
       stock: String(prod.stock),
+      price: String(prod.price ?? ""),
       categoryId: prod.categoryId || "",
       skinTypeId: prod.skinTypeId || "",
     });
@@ -209,6 +212,7 @@ export default function ProductsPage() {
           image: imageUrl,
           assetId: assetId,
           stock: parseInt(editForm.stock, 10) || 0,
+          price: parseFloat(editForm.price) || 0,
           categoryId: editForm.categoryId || undefined,
           skinTypeId: editForm.skinTypeId || undefined,
         }),
@@ -322,11 +326,12 @@ export default function ProductsPage() {
 
       {!loading && filtered.length > 0 && (
         <div className="flex flex-col gap-0.5">
-          <div className="grid grid-cols-[80px_1.2fr_1fr_1fr_100px_40px_40px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-[#7f7663] border-b border-[#d0c5af]">
+          <div className="grid grid-cols-[80px_1.2fr_1fr_1fr_90px_100px_40px_40px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-[#7f7663] border-b border-[#d0c5af]">
             <span>Image</span>
             <span>Name</span>
             <span>Category</span>
             <span>Skin Type</span>
+            <span>Price</span>
             <span>Stock</span>
             <span></span>
             <span></span>
@@ -335,7 +340,7 @@ export default function ProductsPage() {
           {filtered.map((prod) => (
             <div
               key={prod.id}
-              className="grid grid-cols-[80px_1.2fr_1fr_1fr_100px_40px_40px] gap-3 items-center p-3 bg-white border border-[#e8e8e8] hover:border-[#d0c5af] transition-colors duration-200 rounded-[20px]"
+              className="grid grid-cols-[80px_1.2fr_1fr_1fr_90px_100px_40px_40px] gap-3 items-center p-3 bg-white border border-[#e8e8e8] hover:border-[#d0c5af] transition-colors duration-200 rounded-[20px]"
             >
               <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
                 <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
@@ -346,6 +351,9 @@ export default function ProductsPage() {
               </span>
               <span className="text-sm text-[#7f7663] truncate">
                 {prod.skinType?.name ?? "All"}
+              </span>
+              <span className="text-sm font-medium text-[#1a1c1c]">
+                {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
               </span>
               <div>{stockBadge(prod.stock)}</div>
               {/* Edit */}
@@ -435,6 +443,12 @@ export default function ProductsPage() {
                   className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
               </div>
               <div>
+                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Price (ETB)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
+                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
+              </div>
+              <div>
                 <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Image</label>
                 <input type="file" accept="image/*"
                   onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageSelect(file); }}
@@ -484,6 +498,13 @@ export default function ProductsPage() {
                 <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Stock Level</label>
                 <input type="number" min="0" value={editForm.stock}
                   onChange={(e) => setEditForm((f) => ({ ...f, stock: e.target.value }))}
+                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
+              </div>
+              {/* Price */}
+              <div>
+                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Price (ETB)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" value={editForm.price}
+                  onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
                   className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
               </div>
               {/* Category */}
