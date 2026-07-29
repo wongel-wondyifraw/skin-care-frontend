@@ -88,7 +88,7 @@ export default function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`relative bg-white p-8 sm:p-10 w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-[20px] outline-none`}
+        className={`relative bg-white p-8 sm:p-10 w-full ${maxWidth} max-h-[90vh] overflow-y-auto no-scrollbar rounded-[20px] outline-none`}
       >
         <button
           type="button"

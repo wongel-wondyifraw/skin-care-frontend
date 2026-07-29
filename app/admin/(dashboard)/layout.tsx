@@ -76,7 +76,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar onSignOut={signOut} />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar adminName={adminName} onSignOut={signOut} />
-        <main className="flex-1 lg:pb-8 pb-24 py-8 px-5 overflow-y-auto">
+        <main className="flex-1 lg:pb-8 pb-24 py-8 px-5 overflow-y-auto no-scrollbar">
           <div className="max-w-[1200px] mx-auto">{children}</div>
         </main>
         <MobileNav />
