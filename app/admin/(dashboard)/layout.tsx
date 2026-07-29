@@ -26,7 +26,11 @@ export default function DashboardLayout({
         setAdminName(data.name);
         setReady(true);
       } catch {
-        if (!cancelled) router.replace("/admin/login");
+        if (cancelled) return;
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminName");
+        document.cookie = "adminToken=; path=/; max-age=0";
+        router.replace("/admin/login");
       }
     })();
     return () => {
@@ -40,6 +44,9 @@ export default function DashboardLayout({
     } catch {
       // proceed even if logout API fails
     }
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminName");
+    document.cookie = "adminToken=; path=/; max-age=0";
     router.push("/admin/login");
   }, [router]);
 

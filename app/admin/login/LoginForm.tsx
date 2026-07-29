@@ -34,7 +34,13 @@ export default function LoginForm() {
         throw new Error(body?.message ?? "Invalid credentials");
       }
 
-      // Cookie is set by the backend (HttpOnly, SameSite=Strict)
+      const data = await res.json();
+
+      localStorage.setItem("adminToken", data.accessToken);
+      localStorage.setItem("adminName", data.admin?.name ?? "");
+
+      document.cookie = `adminToken=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`;
+
       router.push("/admin/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
