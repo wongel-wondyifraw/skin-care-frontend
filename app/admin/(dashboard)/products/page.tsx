@@ -5,6 +5,7 @@ import { apiFetch, API_BASE_URL } from "../../../../lib/api";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import Modal from "../../../../components/Modal";
 import Image from "next/image";
+import { AdminTable } from "../../../../components/AdminTable";
 
 interface Category {
   id: string;
@@ -61,10 +62,9 @@ const selectClass =
 async function uploadImage(file: File): Promise<{ url: string; assetId: string }> {
   const formData = new FormData();
   formData.append("image", file);
-  const token = localStorage.getItem("adminToken");
   const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
     body: formData,
   });
   if (!uploadRes.ok) throw new Error("Image upload failed");
@@ -632,41 +632,76 @@ export default function ProductsPage() {
       {!loading && filtered.length > 0 && (
         <>
           {/* Desktop table */}
-          <div className="hidden lg:flex flex-col gap-0.5">
-            <div className="grid grid-cols-[72px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_90px_110px_80px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-outline border-b border-outline-variant">
-              <span>Image</span>
-              <span>Name</span>
-              <span>Category</span>
-              <span>Skin Type</span>
-              <span>Price</span>
-              <span>Stock</span>
-              <span className="sr-only">Actions</span>
-            </div>
-            {filtered.map((prod) => (
-              <div
-                key={prod.id}
-                className="grid grid-cols-[72px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_90px_110px_80px] gap-3 items-center p-3 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-[20px]"
-              >
-                <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#f3f3f3]">
-                  <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
-                </div>
-                <span className="text-[15px] font-medium text-on-background truncate">{prod.name}</span>
-                <span className="text-sm text-outline truncate">
-                  {prod.category?.name ?? <em className="opacity-50">Uncategorized</em>}
-                </span>
-                <span className="text-sm text-outline truncate">{prod.skinType?.name ?? "All"}</span>
-                <span className="text-sm font-medium text-on-background">
-                  {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
-                </span>
-                <div>{stockBadge(prod.stock)}</div>
-                <ProductActions
-                  prod={prod}
-                  deletingId={deletingId}
-                  onEdit={() => openEdit(prod)}
-                  onDelete={() => setDeleteTarget(prod)}
-                />
-              </div>
-            ))}
+          <div className="hidden lg:block">
+            <AdminTable
+              columns={[
+                {
+                  key: "image",
+                  header: "Image",
+                  cellClassName: "w-[72px]",
+                  render: (prod) => (
+                    <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#f3f3f3]">
+                      <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
+                    </div>
+                  ),
+                },
+                {
+                  key: "name",
+                  header: "Name",
+                  render: (prod) => (
+                    <span className="text-[14px] font-medium text-on-background truncate">
+                      {prod.name}
+                    </span>
+                  ),
+                },
+                {
+                  key: "category",
+                  header: "Category",
+                  render: (prod) => (
+                    <span className="text-[13px] text-outline truncate">
+                      {prod.category?.name ?? <em className="opacity-50">Uncategorized</em>}
+                    </span>
+                  ),
+                },
+                {
+                  key: "skinType",
+                  header: "Skin Type",
+                  render: (prod) => (
+                    <span className="text-[13px] text-outline truncate">
+                      {prod.skinType?.name ?? "All"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "price",
+                  header: "Price",
+                  render: (prod) => (
+                    <span className="text-[13px] font-medium text-on-background truncate">
+                      {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "stock",
+                  header: "Stock",
+                  render: (prod) => <div>{stockBadge(prod.stock)}</div>,
+                },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  render: (prod) => (
+                    <ProductActions
+                      prod={prod}
+                      deletingId={deletingId}
+                      onEdit={() => openEdit(prod)}
+                      onDelete={() => setDeleteTarget(prod)}
+                    />
+                  ),
+                },
+              ]}
+              rows={filtered}
+              getRowKey={(p) => p.id}
+            />
           </div>
 
           {/* Mobile cards */}

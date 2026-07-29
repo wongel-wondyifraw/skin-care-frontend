@@ -6,6 +6,7 @@ import Sidebar from "../../../components/Sidebar";
 import TopBar from "../../../components/TopBar";
 import MobileNav from "../../../components/MobileNav";
 import { AdminProvider, useAdmin } from "../../../lib/admin-context";
+import { apiFetch } from "../../../lib/api";
 
 export default function DashboardLayout({
   children,
@@ -17,31 +18,28 @@ export default function DashboardLayout({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.replace("/admin/login");
-      return;
-    }
-
-    let name = "";
-    try {
-      const raw = localStorage.getItem("adminUser");
-      if (raw) name = (JSON.parse(raw) as { name: string }).name ?? "";
-    } catch {
-      // ignore malformed data
-    }
-
-    // Defer state updates so the effect stays async-friendly for the linter
-    queueMicrotask(() => {
-      setAdminName(name);
-      setReady(true);
-    });
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiFetch<{ id: string; name: string; email: string }>("/auth/me");
+        if (cancelled) return;
+        setAdminName(data.name);
+        setReady(true);
+      } catch {
+        if (!cancelled) router.replace("/admin/login");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  const handleSignOut = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
-    document.cookie = "adminToken=; path=/; max-age=0; SameSite=Strict";
+  const handleSignOut = useCallback(async () => {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // proceed even if logout API fails
+    }
     router.push("/admin/login");
   }, [router]);
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../../../../lib/api";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import Modal from "../../../../components/Modal";
+import { AdminTable } from "../../../../components/AdminTable";
 
 interface Category {
   id: string;
@@ -180,58 +181,127 @@ export default function CategoriesPage() {
 
       {!loading && categories.length > 0 && (
         <div className="flex flex-col gap-0.5">
-          <div className="hidden sm:grid grid-cols-[1fr_2fr_auto] gap-4 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-outline border-b border-outline-variant">
-            <span>Name</span>
-            <span>Description</span>
-            <span className="sr-only">Actions</span>
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <AdminTable<Category>
+              columns={[
+                {
+                  key: "name",
+                  header: "Name",
+                  render: (cat) => (
+                    <span className="text-[13px] font-medium text-on-background">
+                      {cat.name}
+                    </span>
+                  ),
+                },
+                {
+                  key: "description",
+                  header: "Description",
+                  cellClassName: "break-words",
+                  render: (cat) => cat.description ?? <em className="opacity-50">No description</em>,
+                },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  render: (cat) => (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(cat)}
+                        aria-label={`Edit ${cat.name}`}
+                        className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                          className="w-[17px] h-[17px]" aria-hidden="true">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(cat)}
+                        disabled={deletingId === cat.id}
+                        aria-label={`Delete ${cat.name}`}
+                        className={`bg-transparent border-none p-1 transition-opacity ${
+                          deletingId === cat.id
+                            ? "cursor-not-allowed text-outline-variant opacity-40"
+                            : "cursor-pointer text-error"
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                          className="w-[17px] h-[17px]" aria-hidden="true">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              rows={categories}
+              getRowKey={(c) => c.id}
+            />
           </div>
 
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              className="flex flex-col sm:grid sm:grid-cols-[1fr_2fr_auto] gap-2 sm:gap-4 sm:items-center py-3.5 px-4 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-2xl"
-            >
-              <span className="text-[15px] font-medium text-on-background">{cat.name}</span>
-              <span className="text-sm text-outline">
-                {cat.description ?? <em className="opacity-50">No description</em>}
-              </span>
-              <div className="flex items-center gap-1 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => openEdit(cat)}
-                  aria-label={`Edit ${cat.name}`}
-                  className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                    className="w-[17px] h-[17px]" aria-hidden="true">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(cat)}
-                  disabled={deletingId === cat.id}
-                  aria-label={`Delete ${cat.name}`}
-                  className={`bg-transparent border-none p-1 transition-opacity ${
-                    deletingId === cat.id
-                      ? "cursor-not-allowed text-outline-variant opacity-40"
-                      : "cursor-pointer text-error"
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                    className="w-[17px] h-[17px]" aria-hidden="true">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                  </svg>
-                </button>
+          {/* Mobile cards */}
+          <div className="sm:hidden flex flex-col gap-0.5">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="flex flex-col gap-2 py-3 px-4 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-2xl"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-[15px] font-medium text-on-background">
+                      {cat.name}
+                    </span>
+                    <div className="text-sm text-outline break-words">
+                      {cat.description ?? <em className="opacity-50">No description</em>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(cat)}
+                      aria-label={`Edit ${cat.name}`}
+                      className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className="w-[17px] h-[17px]" aria-hidden="true">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(cat)}
+                      disabled={deletingId === cat.id}
+                      aria-label={`Delete ${cat.name}`}
+                      className={`bg-transparent border-none p-1 transition-opacity ${
+                        deletingId === cat.id
+                          ? "cursor-not-allowed text-outline-variant opacity-40"
+                          : "cursor-pointer text-error"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className="w-[17px] h-[17px]" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 

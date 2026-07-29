@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../../../lib/api";
+import { AdminTable } from "../../../../components/AdminTable";
 
 type SkinType = {
   id: string;
@@ -67,6 +68,48 @@ export default function CustomersPage() {
     });
   }, [customers, search]);
 
+  const columns = useMemo(
+    () => [
+      {
+        key: "telegramId",
+        header: "Telegram ID",
+        render: (c: Customer) => c.telegramId,
+      },
+      {
+        key: "fullName",
+        header: "Full Name",
+        render: (c: Customer) => c.fullName,
+      },
+      {
+        key: "phone",
+        header: "Phone",
+        render: (c: Customer) => c.phone,
+      },
+      {
+        key: "address",
+        header: "Address",
+        cellClassName: "break-words",
+        render: (c: Customer) => c.address,
+      },
+      {
+        key: "skinType",
+        header: "Skin Type",
+        render: (c: Customer) => c.skinType?.name ?? "Not set",
+      },
+      {
+        key: "createdAt",
+        header: "Created",
+        render: (c: Customer) => formatDate(c.createdAt),
+      },
+      {
+        key: "updatedAt",
+        header: "Updated",
+        render: (c: Customer) => formatDate(c.updatedAt),
+      },
+    ],
+    [],
+  );
+
   return (
     <>
       <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
@@ -109,48 +152,11 @@ export default function CustomersPage() {
         <>
           {/* Desktop table */}
           <div className="hidden lg:flex flex-col gap-0.5">
-            <div className="grid grid-cols-[140px_150px_1.4fr_1fr_1.2fr_220px_140px_140px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-outline border-b border-outline-variant">
-              <span>Customer ID</span>
-              <span>Telegram ID</span>
-              <span>Full Name</span>
-              <span>Phone</span>
-              <span>Address</span>
-              <span>Skin Type</span>
-              <span>Created</span>
-              <span>Updated</span>
-            </div>
-
-            {filtered.map((c) => (
-              <div
-                key={c.id}
-                className="grid grid-cols-[140px_150px_1.4fr_1fr_1.2fr_220px_140px_140px] gap-3 items-start p-3 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-[20px]"
-              >
-                <span className="text-[13px] font-medium text-on-background truncate">
-                  {c.id}
-                </span>
-                <span className="text-[13px] text-outline truncate">
-                  {c.telegramId}
-                </span>
-                <span className="text-[14px] font-medium text-on-background truncate">
-                  {c.fullName}
-                </span>
-                <span className="text-[13px] text-outline truncate">
-                  {c.phone}
-                </span>
-                <span className="text-[13px] text-outline break-words">
-                  {c.address}
-                </span>
-                <span className="text-[13px] text-outline truncate">
-                  {c.skinType?.name ?? <em className="opacity-50">Not set</em>}
-                </span>
-                <span className="text-[13px] text-outline truncate">
-                  {formatDate(c.createdAt)}
-                </span>
-                <span className="text-[13px] text-outline truncate">
-                  {formatDate(c.updatedAt)}
-                </span>
-              </div>
-            ))}
+            <AdminTable
+              columns={columns}
+              rows={filtered}
+              getRowKey={(c) => c.id}
+            />
           </div>
 
           {/* Mobile cards */}

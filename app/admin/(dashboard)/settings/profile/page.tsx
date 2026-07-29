@@ -14,17 +14,8 @@ const sectionTitle =
   "text-[13px] font-semibold tracking-[0.1em] uppercase text-[#4d4635] mb-5 pb-2 border-b border-outline-variant";
 
 export default function ProfilePage() {
-  const { setAdminName } = useAdmin();
-  const [name, setName] = useState(() => {
-    if (typeof window === "undefined") return "";
-    try {
-      const raw = localStorage.getItem("adminUser");
-      if (raw) return (JSON.parse(raw) as { name: string }).name ?? "";
-    } catch {
-      /* ignore */
-    }
-    return "";
-  });
+  const { adminName, setAdminName } = useAdmin();
+  const [name, setName] = useState(adminName);
   const [nameStatus, setNameStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [nameBusy, setNameBusy] = useState(false);
 
@@ -44,15 +35,6 @@ export default function ProfilePage() {
         method: "PATCH",
         body: JSON.stringify({ name: name.trim() }),
       });
-      try {
-        const raw = localStorage.getItem("adminUser");
-        if (raw) {
-          const u = JSON.parse(raw);
-          localStorage.setItem("adminUser", JSON.stringify({ ...u, name: res.name }));
-        }
-      } catch {
-        /* ignore */
-      }
       setAdminName(res.name);
       setNameStatus({ ok: true, msg: "Name updated successfully." });
     } catch (err: unknown) {

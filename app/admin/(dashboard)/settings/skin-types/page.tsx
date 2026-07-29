@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../../../../../lib/api";
 import ConfirmModal from "../../../../../components/ConfirmModal";
 import Modal from "../../../../../components/Modal";
+import { AdminTable } from "../../../../../components/AdminTable";
 
 interface SkinType {
   id: string;
@@ -207,58 +208,128 @@ export default function SkinTypesPage() {
         )}
 
         {!loading && skins.length > 0 && (
-          <ul className="list-none p-0 m-0 flex flex-col gap-0.5">
-            {skins.map((skin) => (
-              <li
-                key={skin.id}
-                className="flex items-center justify-between gap-4 py-3 px-4 bg-white border border-[#e8e8e8] rounded-xl"
-              >
-                <div className="min-w-0">
-                  <span className="block text-[15px] font-medium text-on-background">
-                    {skin.name}
-                  </span>
-                  {skin.description && (
-                    <span className="text-[13px] text-outline">{skin.description}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(skin)}
-                    aria-label={`Edit ${skin.name}`}
-                    className="bg-transparent border-none p-1 cursor-pointer text-primary"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                      className="w-[17px] h-[17px]" aria-hidden="true">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(skin)}
-                    disabled={deletingId === skin.id}
-                    aria-label={`Delete ${skin.name}`}
-                    className={`bg-transparent border-none p-1 ${
-                      deletingId === skin.id
-                        ? "cursor-not-allowed text-outline-variant opacity-50"
-                        : "cursor-pointer text-error"
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                      className="w-[18px] h-[18px]" aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            {/* Desktop table */}
+            <div className="hidden lg:block">
+              <AdminTable<SkinType>
+                columns={[
+                  {
+                    key: "name",
+                    header: "Name",
+                    render: (skin) => (
+                      <span className="text-[13px] font-medium text-on-background">
+                        {skin.name}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "description",
+                    header: "Description",
+                    cellClassName: "break-words",
+                    render: (skin) =>
+                      skin.description ?? <em className="opacity-50">No description</em>,
+                  },
+                  {
+                    key: "actions",
+                    header: "Actions",
+                    render: (skin) => (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(skin)}
+                          aria-label={`Edit ${skin.name}`}
+                          className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                            className="w-[17px] h-[17px]" aria-hidden="true">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(skin)}
+                          disabled={deletingId === skin.id}
+                          aria-label={`Delete ${skin.name}`}
+                          className={`bg-transparent border-none p-1 transition-opacity ${
+                            deletingId === skin.id
+                              ? "cursor-not-allowed text-outline-variant opacity-40"
+                              : "cursor-pointer text-error"
+                          }`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                            className="w-[18px] h-[18px]" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                          </svg>
+                        </button>
+                      </div>
+                    ),
+                  },
+                ]}
+                rows={skins}
+                getRowKey={(s) => s.id}
+              />
+            </div>
+
+            {/* Mobile list */}
+            <ul className="lg:hidden list-none p-0 m-0 flex flex-col gap-0.5">
+              {skins.map((skin) => (
+                <li
+                  key={skin.id}
+                  className="flex items-center justify-between gap-4 py-3 px-4 bg-white border border-[#e8e8e8] rounded-xl"
+                >
+                  <div className="min-w-0">
+                    <span className="block text-[15px] font-medium text-on-background">
+                      {skin.name}
+                    </span>
+                    {skin.description && (
+                      <span className="text-[13px] text-outline">{skin.description}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(skin)}
+                      aria-label={`Edit ${skin.name}`}
+                      className="bg-transparent border-none p-1 cursor-pointer text-primary"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className="w-[17px] h-[17px]" aria-hidden="true">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(skin)}
+                      disabled={deletingId === skin.id}
+                      aria-label={`Delete ${skin.name}`}
+                      className={`bg-transparent border-none p-1 ${
+                        deletingId === skin.id
+                          ? "cursor-not-allowed text-outline-variant opacity-50"
+                          : "cursor-pointer text-error"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className="w-[18px] h-[18px]" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 
