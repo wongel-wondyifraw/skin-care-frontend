@@ -1,24 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../../../../lib/api";
-import { AdminTable } from "../../../../components/AdminTable";
+import { apiFetch } from "@/lib/api";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
-type SkinType = {
-  id: string;
-  name: string;
-};
-
+type SkinType = { id: string; name: string };
 type Customer = {
-  id: string;
-  telegramId: number;
-  fullName: string;
-  phone: string;
-  address: string;
-  skinTypeId: string | null;
-  skinType: SkinType | null;
-  createdAt: string;
-  updatedAt: string;
+  id: string; telegramId: number; fullName: string; phone: string;
+  address: string; skinTypeId: string | null; skinType: SkinType | null;
+  createdAt: string; updatedAt: string;
 };
 
 function formatDate(iso: string) {
@@ -31,177 +27,81 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const data = await apiFetch<Customer[]>("/customers");
-        if (!cancelled) setCustomers(data);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : "Failed to load customers.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      try { const data = await apiFetch<Customer[]>("/customers"); if (!cancelled) setCustomers(data); }
+      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load customers."); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return customers;
-    return customers.filter((c) => {
-      const skinName = c.skinType?.name ?? "";
-      return (
-        c.fullName.toLowerCase().includes(q) ||
-        String(c.telegramId).includes(q) ||
-        c.phone.toLowerCase().includes(q) ||
-        c.address.toLowerCase().includes(q) ||
-        skinName.toLowerCase().includes(q)
-      );
-    });
+    return customers.filter((c) => c.fullName.toLowerCase().includes(q) || String(c.telegramId).includes(q) || c.phone.toLowerCase().includes(q) || c.address.toLowerCase().includes(q) || (c.skinType?.name ?? "").toLowerCase().includes(q));
   }, [customers, search]);
-
-  const columns = useMemo(
-    () => [
-      {
-        key: "telegramId",
-        header: "Telegram ID",
-        render: (c: Customer) => c.telegramId,
-      },
-      {
-        key: "fullName",
-        header: "Full Name",
-        render: (c: Customer) => c.fullName,
-      },
-      {
-        key: "phone",
-        header: "Phone",
-        render: (c: Customer) => c.phone,
-      },
-      {
-        key: "address",
-        header: "Address",
-        cellClassName: "break-words",
-        render: (c: Customer) => c.address,
-      },
-      {
-        key: "skinType",
-        header: "Skin Type",
-        render: (c: Customer) => c.skinType?.name ?? "Not set",
-      },
-      {
-        key: "createdAt",
-        header: "Created",
-        render: (c: Customer) => formatDate(c.createdAt),
-      },
-      {
-        key: "updatedAt",
-        header: "Updated",
-        render: (c: Customer) => formatDate(c.updatedAt),
-      },
-    ],
-    [],
-  );
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
         <div>
-          <h2 className="text-[22px] font-medium text-on-background mb-1">Customers</h2>
-          <p className="text-sm text-outline">Customer profiles + Telegram registration info.</p>
+          <h2 className="text-lg font-semibold text-foreground">Customers</h2>
+          <p className="text-sm text-muted-foreground">Customer profiles + Telegram registration info.</p>
         </div>
-
-        <div className="relative w-full sm:w-[360px]">
-          <input
-            type="search"
-            placeholder="Search by name, telegram ID, phone, address…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-outline-variant rounded-full py-2.5 px-4 text-sm bg-white text-on-background outline-none font-inherit focus:border-primary transition-colors w-full"
-          />
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input type="search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-xs" />
         </div>
       </div>
 
-      {fetchError && <p className="text-[13px] text-error" role="alert">{fetchError}</p>}
-
-      {loading && (
-        <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading customers">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-[78px] bg-white border border-[#e8e8e8] rounded-[20px] animate-pulse" />
-          ))}
-        </div>
-      )}
+      {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
+      {loading && <div className="space-y-2" aria-busy="true">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>}
 
       {!loading && !fetchError && filtered.length === 0 && (
-        <div className="py-12 px-6 text-center border border-dashed border-outline-variant text-outline rounded-2xl">
-          <p className="text-[15px] mb-3">No customers found.</p>
-          {customers.length > 0 && (
-            <p className="text-[13px] text-outline">Try clearing your search.</p>
-          )}
+        <div className="py-12 text-center border border-dashed border-border rounded-lg text-muted-foreground">
+          <p>No customers found.</p>
+          {customers.length > 0 && <p className="text-xs mt-1">Try clearing your search.</p>}
         </div>
       )}
 
       {!loading && !fetchError && filtered.length > 0 && (
         <>
-          {/* Desktop table */}
-          <div className="hidden lg:flex flex-col gap-0.5">
-            <AdminTable
-              columns={columns}
-              rows={filtered}
-              getRowKey={(c) => c.id}
-            />
+          <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Telegram ID</TableHead><TableHead>Full Name</TableHead><TableHead>Phone</TableHead>
+                  <TableHead>Address</TableHead><TableHead>Skin Type</TableHead><TableHead>Joined</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="text-muted-foreground font-mono text-xs">{c.telegramId}</TableCell>
+                    <TableCell className="font-medium">{c.fullName}</TableCell>
+                    <TableCell>{c.phone}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[200px] truncate">{c.address}</TableCell>
+                    <TableCell>{c.skinType ? <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Mobile cards */}
-          <div className="flex lg:hidden flex-col gap-3">
+          <div className="flex lg:hidden flex-col gap-2">
             {filtered.map((c) => (
-              <div
-                key={c.id}
-                className="p-3 bg-white border border-[#e8e8e8] rounded-[20px]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-semibold text-on-background truncate">
-                      {c.fullName}
-                    </div>
-                    <div className="text-[13px] text-outline">
-                      Telegram: <span className="font-medium text-on-background">{c.telegramId}</span>
-                    </div>
-                    <div className="text-[13px] text-outline truncate">
-                      Phone: {c.phone}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 text-[13px] text-outline">
-                  <div className="font-semibold text-on-background mb-1">Address</div>
-                  <div className="break-words">{c.address}</div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-outline">
-                  <div>
-                    Skin Type:{" "}
-                    <span className="font-medium text-on-background">
-                      {c.skinType?.name ?? "Not set"}
-                    </span>
-                  </div>
-                  <div>
-                    Created:{" "}
-                    <span className="font-medium text-on-background">
-                      {formatDate(c.createdAt)}
-                    </span>
-                  </div>
-                  <div>
-                    Updated:{" "}
-                    <span className="font-medium text-on-background">
-                      {formatDate(c.updatedAt)}
-                    </span>
-                  </div>
+              <div key={c.id} className="p-3 bg-card border border-border rounded-lg">
+                <p className="text-sm font-semibold">{c.fullName}</p>
+                <p className="text-xs text-muted-foreground">Telegram: {c.telegramId} · {c.phone}</p>
+                <p className="text-xs text-muted-foreground mt-1 break-words">{c.address}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
+                  {c.skinType && <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>}
+                  <span>Joined {formatDate(c.createdAt)}</span>
                 </div>
               </div>
             ))}
@@ -211,4 +111,3 @@ export default function CustomersPage() {
     </>
   );
 }
-

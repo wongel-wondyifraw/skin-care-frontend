@@ -2,74 +2,65 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isNavActive } from "../../../../lib/nav";
+import { isNavActive } from "@/lib/nav";
+import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
-const settingsTabs = [
+const adminTabs = [
   { href: "/admin/settings/profile", label: "Profile" },
   { href: "/admin/settings/add-admin", label: "Add Admin" },
 ];
 
+const skinDefTabs = [
+  { href: "/admin/settings/skin-types", label: "Skin Definitions" },
+];
+
+function NavLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
+  const active = isNavActive(pathname, href);
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "block px-3 py-2 rounded-md text-sm no-underline transition-colors",
+        active
+          ? "bg-accent text-primary font-medium"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const skinDefTab = { href: "/admin/settings/skin-types", label: "Skin Definitions" };
-
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-      <aside className="lg:w-56 flex-shrink-0">
-        <div className="px-1 pt-2 pb-3">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-outline">
+    <div className="flex flex-col lg:flex-row gap-6">
+      <aside className="lg:w-48 flex-shrink-0 space-y-4">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
             Admin
           </p>
+          <nav className="flex flex-col gap-0.5" aria-label="Settings navigation">
+            {adminTabs.map((t) => (
+              <NavLink key={t.href} {...t} pathname={pathname} />
+            ))}
+          </nav>
         </div>
-        <nav
-          className="flex flex-col gap-1 overflow-y-auto no-scrollbar max-h-[70vh]"
-          aria-label="Settings navigation"
-        >
-          {settingsTabs.map(({ href, label }) => {
-            const active = isNavActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`block px-4 py-2.5 rounded-lg no-underline text-sm whitespace-nowrap transition-colors duration-200 ${
-                  active
-                    ? "font-semibold text-primary bg-[#fff8e7] border border-outline-variant"
-                    : "font-normal text-[#4d4635] hover:bg-[#f9f6ef] hover:text-primary border border-transparent"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="mt-6 px-1 pb-3">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-outline">
+        <Separator />
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
             Skin Definitions
           </p>
+          <nav aria-label="Skin definitions navigation">
+            {skinDefTabs.map((t) => (
+              <NavLink key={t.href} {...t} pathname={pathname} />
+            ))}
+          </nav>
         </div>
-        <nav aria-label="Skin definitions navigation">
-          {(() => {
-            const active = isNavActive(pathname, skinDefTab.href);
-            return (
-              <Link
-                href={skinDefTab.href}
-                aria-current={active ? "page" : undefined}
-                className={`block px-4 py-2.5 rounded-lg no-underline text-sm transition-colors duration-200 ${
-                  active
-                    ? "font-semibold text-primary bg-[#fff8e7] border border-outline-variant"
-                    : "font-normal text-[#4d4635] hover:bg-[#f9f6ef] hover:text-primary border border-transparent"
-                }`}
-              >
-                {skinDefTab.label}
-              </Link>
-            );
-          })()}
-        </nav>
       </aside>
-
       <div className="flex-1 min-w-0">{children}</div>
     </div>
   );

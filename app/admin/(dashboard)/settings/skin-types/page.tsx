@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../../../lib/api";
-import ConfirmModal from "../../../../../components/ConfirmModal";
-import Modal from "../../../../../components/Modal";
-import { AdminTable } from "../../../../../components/AdminTable";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import ConfirmModal from "@/components/ConfirmModal";
 
-interface SkinType {
-  id: string;
-  name: string;
-  description: string | null;
-}
-
-const fieldClass =
-  "border border-outline-variant rounded-xl px-3 py-2.5 bg-transparent w-full text-[15px] leading-[22px] text-on-background outline-none font-inherit transition-colors focus:border-primary";
-const labelClass =
-  "block text-[11px] font-semibold tracking-[0.12em] uppercase text-outline mb-1";
-const primaryBtn =
-  "bg-[#1a1a1a] text-white border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl font-inherit hover:bg-primary transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
+interface SkinType { id: string; name: string; description: string | null }
 
 export default function SkinTypesPage() {
   const [skins, setSkins] = useState<SkinType[]>([]);
@@ -40,351 +40,137 @@ export default function SkinTypesPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const data = await apiFetch<SkinType[]>("/skin-types");
-        if (!cancelled) setSkins(data);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : "Failed to load skin types.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      try { const data = await apiFetch<SkinType[]>("/skin-types"); if (!cancelled) setSkins(data); }
+      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load."); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    setAddBusy(true);
-    setAddStatus(null);
+    e.preventDefault(); if (!form.name.trim()) return;
+    setAddBusy(true); setAddStatus(null);
     try {
-      const created = await apiFetch<SkinType>("/skin-types", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          description: form.description.trim() || undefined,
-        }),
-      });
-      setSkins((prev) =>
-        [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setForm({ name: "", description: "" });
-      setAddStatus({ ok: true, msg: `"${created.name}" added.` });
-    } catch (err: unknown) {
-      setAddStatus({
-        ok: false,
-        msg: err instanceof Error ? err.message : "Failed to add skin type.",
-      });
-    } finally {
-      setAddBusy(false);
-    }
+      const created = await apiFetch<SkinType>("/skin-types", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      setSkins((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm({ name: "", description: "" }); setAddStatus({ ok: true, msg: `"${created.name}" added.` });
+    } catch (err: unknown) { setAddStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to add." }); }
+    finally { setAddBusy(false); }
   }
 
-  function openEdit(skin: SkinType) {
-    setEditTarget(skin);
-    setEditForm({ name: skin.name, description: skin.description ?? "" });
-    setEditError(null);
-  }
+  function openEdit(skin: SkinType) { setEditTarget(skin); setEditForm({ name: skin.name, description: skin.description ?? "" }); setEditError(null); }
 
   async function handleEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editTarget || !editForm.name.trim()) return;
-    setEditBusy(true);
-    setEditError(null);
+    e.preventDefault(); if (!editTarget || !editForm.name.trim()) return;
+    setEditBusy(true); setEditError(null);
     try {
-      const updated = await apiFetch<SkinType>(`/skin-types/${editTarget.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: editForm.name.trim(),
-          description: editForm.description.trim() || undefined,
-        }),
-      });
-      setSkins((prev) =>
-        prev
-          .map((s) => (s.id === updated.id ? updated : s))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setEditTarget(null);
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : "Failed to update skin type.");
-    } finally {
-      setEditBusy(false);
-    }
+      const updated = await apiFetch<SkinType>(`/skin-types/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined }) });
+      setSkins((prev) => prev.map((s) => (s.id === updated.id ? updated : s)).sort((a, b) => a.name.localeCompare(b.name))); setEditTarget(null);
+    } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update."); }
+    finally { setEditBusy(false); }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeletingId(deleteTarget.id);
-    setActionError(null);
-    try {
-      await apiFetch(`/skin-types/${deleteTarget.id}`, { method: "DELETE" });
-      setSkins((prev) => prev.filter((s) => s.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Failed to delete.");
-      setDeleteTarget(null);
-    } finally {
-      setDeletingId(null);
-    }
+    if (!deleteTarget) return; setDeletingId(deleteTarget.id); setActionError(null);
+    try { await apiFetch(`/skin-types/${deleteTarget.id}`, { method: "DELETE" }); setSkins((prev) => prev.filter((s) => s.id !== deleteTarget.id)); setDeleteTarget(null); }
+    catch (err: unknown) { setActionError(err instanceof Error ? err.message : "Failed to delete."); setDeleteTarget(null); }
+    finally { setDeletingId(null); }
   }
 
   return (
-    <div className="max-w-[600px]">
-      <h2 className="text-[22px] font-medium text-on-background mb-1">Skin Types</h2>
-      <p className="text-sm text-outline mb-9">
-        Define the skin types available across your product catalogue.
-      </p>
+    <div className="max-w-xl space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">Skin Types</h2>
+        <p className="text-sm text-muted-foreground">Define skin types for your product catalogue.</p>
+      </div>
 
-      <section className="mb-10">
-        <h3 className="text-[13px] font-semibold tracking-[0.1em] uppercase text-[#4d4635] mb-5 pb-2 border-b border-outline-variant">
-          Add New Skin Type
-        </h3>
-        <form onSubmit={handleAdd} className="flex flex-col gap-5">
-          <div>
-            <label className={labelClass} htmlFor="skin-name">Name</label>
-            <input
-              id="skin-name"
-              type="text"
-              placeholder="e.g. Oily, Dry, Combination"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="skin-description">
-              Description <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <input
-              id="skin-description"
-              type="text"
-              placeholder="Short description"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className={fieldClass}
-            />
-          </div>
-          {addStatus && (
-            <p
-              className={`text-[13px] ${addStatus.ok ? "text-primary" : "text-error"}`}
-              role="alert"
-            >
-              {addStatus.msg}
-            </p>
-          )}
-          <div>
-            <button type="submit" disabled={addBusy} className={primaryBtn}>
-              {addBusy ? "Adding…" : "Add Skin Type"}
-            </button>
-          </div>
-        </form>
-      </section>
+      <Card>
+        <CardHeader className="pb-3"><CardTitle className="text-sm">Add New Skin Type</CardTitle></CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="skin-name">Name</Label>
+              <Input id="skin-name" placeholder="e.g. Oily, Dry, Combination" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="skin-desc">Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input id="skin-desc" placeholder="Short description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            </div>
+            {addStatus && <p className={`text-sm ${addStatus.ok ? "text-primary" : "text-destructive"}`} role="alert">{addStatus.msg}</p>}
+            <Button type="submit" disabled={addBusy} size="sm" className="self-start">{addBusy ? "Adding…" : "Add Skin Type"}</Button>
+          </form>
+        </CardContent>
+      </Card>
 
-      <section>
-        <h3 className="text-[13px] font-semibold tracking-[0.1em] uppercase text-[#4d4635] mb-4 pb-2 border-b border-outline-variant">
-          Defined Skin Types
-        </h3>
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Defined Skin Types</h3>
 
-        {loading && (
-          <div className="flex flex-col gap-2" aria-busy="true">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 bg-white border border-[#e8e8e8] rounded-xl animate-pulse" />
-            ))}
-          </div>
-        )}
-        {fetchError && <p className="text-[13px] text-error" role="alert">{fetchError}</p>}
-        {actionError && <p className="mb-3 text-[13px] text-error" role="alert">{actionError}</p>}
+        {loading && <div className="space-y-2" aria-busy="true">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>}
+        {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
+        {actionError && <p className="mb-3 text-sm text-destructive" role="alert">{actionError}</p>}
 
         {!loading && !fetchError && skins.length === 0 && (
-          <div className="py-10 px-5 text-center border border-dashed border-outline-variant text-outline rounded-2xl">
-            <p className="text-[15px] mb-2">No skin types defined yet.</p>
-            <p className="text-[13px]">Use the form above to add your first skin type.</p>
+          <div className="py-10 text-center border border-dashed border-border rounded-lg text-muted-foreground">
+            <p>No skin types defined yet.</p>
+            <p className="text-xs mt-1">Use the form above to add your first.</p>
           </div>
         )}
 
         {!loading && skins.length > 0 && (
           <>
-            {/* Desktop table */}
-            <div className="hidden lg:block">
-              <AdminTable<SkinType>
-                columns={[
-                  {
-                    key: "name",
-                    header: "Name",
-                    render: (skin) => (
-                      <span className="text-[13px] font-medium text-on-background">
-                        {skin.name}
-                      </span>
-                    ),
-                  },
-                  {
-                    key: "description",
-                    header: "Description",
-                    cellClassName: "break-words",
-                    render: (skin) =>
-                      skin.description ?? <em className="opacity-50">No description</em>,
-                  },
-                  {
-                    key: "actions",
-                    header: "Actions",
-                    render: (skin) => (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(skin)}
-                          aria-label={`Edit ${skin.name}`}
-                          className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                            className="w-[17px] h-[17px]" aria-hidden="true">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(skin)}
-                          disabled={deletingId === skin.id}
-                          aria-label={`Delete ${skin.name}`}
-                          className={`bg-transparent border-none p-1 transition-opacity ${
-                            deletingId === skin.id
-                              ? "cursor-not-allowed text-outline-variant opacity-40"
-                              : "cursor-pointer text-error"
-                          }`}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                            className="w-[18px] h-[18px]" aria-hidden="true">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                          </svg>
-                        </button>
-                      </div>
-                    ),
-                  },
-                ]}
-                rows={skins}
-                getRowKey={(s) => s.id}
-              />
+            <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Description</TableHead><TableHead className="w-20">Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {skins.map((skin) => (
+                    <TableRow key={skin.id}>
+                      <TableCell className="font-medium">{skin.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{skin.description ?? <em className="opacity-50">—</em>}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon-xs" onClick={() => openEdit(skin)} aria-label={`Edit ${skin.name}`}><Pencil className="size-3.5" /></Button>
+                          <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(skin)} disabled={deletingId === skin.id}
+                            aria-label={`Delete ${skin.name}`} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Mobile list */}
-            <ul className="lg:hidden list-none p-0 m-0 flex flex-col gap-0.5">
+            <ul className="lg:hidden list-none p-0 m-0 flex flex-col gap-2">
               {skins.map((skin) => (
-                <li
-                  key={skin.id}
-                  className="flex items-center justify-between gap-4 py-3 px-4 bg-white border border-[#e8e8e8] rounded-xl"
-                >
+                <li key={skin.id} className="flex items-center justify-between gap-3 p-3 bg-card border border-border rounded-lg">
                   <div className="min-w-0">
-                    <span className="block text-[15px] font-medium text-on-background">
-                      {skin.name}
-                    </span>
-                    {skin.description && (
-                      <span className="text-[13px] text-outline">{skin.description}</span>
-                    )}
+                    <p className="text-sm font-medium">{skin.name}</p>
+                    {skin.description && <p className="text-xs text-muted-foreground">{skin.description}</p>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(skin)}
-                      aria-label={`Edit ${skin.name}`}
-                      className="bg-transparent border-none p-1 cursor-pointer text-primary"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                        className="w-[17px] h-[17px]" aria-hidden="true">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(skin)}
-                      disabled={deletingId === skin.id}
-                      aria-label={`Delete ${skin.name}`}
-                      className={`bg-transparent border-none p-1 ${
-                        deletingId === skin.id
-                          ? "cursor-not-allowed text-outline-variant opacity-50"
-                          : "cursor-pointer text-error"
-                      }`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                        className="w-[18px] h-[18px]" aria-hidden="true">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6M14 11v6" />
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                      </svg>
-                    </button>
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button variant="ghost" size="icon-xs" onClick={() => openEdit(skin)}><Pencil className="size-3.5" /></Button>
+                    <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(skin)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
                   </div>
                 </li>
               ))}
             </ul>
           </>
         )}
-      </section>
+      </div>
 
-      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Skin Type" maxWidth="max-w-[460px]">
-        <form onSubmit={handleEdit} className="flex flex-col gap-5">
-          <div>
-            <label className={labelClass} htmlFor="edit-skin-name">Name</label>
-            <input
-              id="edit-skin-name"
-              type="text"
-              value={editForm.name}
-              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              data-autofocus
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="edit-skin-desc">
-              Description <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <input
-              id="edit-skin-desc"
-              type="text"
-              value={editForm.description}
-              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-              className={fieldClass}
-            />
-          </div>
-          {editError && <p className="text-[13px] text-error" role="alert">{editError}</p>}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setEditTarget(null)}
-              className="bg-transparent border border-outline-variant hover:border-primary py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl"
-            >
-              Cancel
-            </button>
-            <button type="submit" disabled={editBusy} className={primaryBtn}>
-              {editBusy ? "Updating…" : "Update"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Edit Skin Type</DialogTitle></DialogHeader>
+          <form onSubmit={handleEdit} className="flex flex-col gap-4">
+            <div className="space-y-1.5"><Label htmlFor="edit-skin-name">Name</Label><Input id="edit-skin-name" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} required data-autofocus /></div>
+            <div className="space-y-1.5"><Label htmlFor="edit-skin-desc">Description</Label><Input id="edit-skin-desc" value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} /></div>
+            {editError && <p className="text-sm text-destructive" role="alert">{editError}</p>}
+            <DialogFooter className="gap-2 sm:gap-2"><Button variant="outline" type="button" onClick={() => setEditTarget(null)}>Cancel</Button><Button type="submit" disabled={editBusy}>{editBusy ? "Updating…" : "Update"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Delete Skin Type"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-        busy={!!deletingId}
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      <ConfirmModal open={!!deleteTarget} title="Delete Skin Type" message={`Delete "${deleteTarget?.name}"? This cannot be undone.`}
+        confirmLabel="Delete" variant="danger" busy={!!deletingId} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
     </div>
   );
 }

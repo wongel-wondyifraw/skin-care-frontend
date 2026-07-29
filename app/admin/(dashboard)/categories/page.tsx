@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../../lib/api";
-import ConfirmModal from "../../../../components/ConfirmModal";
-import Modal from "../../../../components/Modal";
-import { AdminTable } from "../../../../components/AdminTable";
+import { apiFetch } from "@/lib/api";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import ConfirmModal from "@/components/ConfirmModal";
 
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-}
-
-const fieldClass =
-  "border border-outline-variant rounded-xl px-3 py-2.5 bg-transparent w-full text-[15px] leading-[22px] text-on-background outline-none font-inherit transition-colors focus:border-primary";
-const labelClass =
-  "block text-[11px] font-semibold tracking-[0.12em] uppercase text-outline mb-1";
+interface Category { id: string; name: string; description: string | null; createdAt: string }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -40,379 +39,135 @@ export default function CategoriesPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const data = await apiFetch<Category[]>("/categories");
-        if (!cancelled) setCategories(data);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : "Failed to load categories.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      try { const data = await apiFetch<Category[]>("/categories"); if (!cancelled) setCategories(data); }
+      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load categories."); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  function openModal() {
-    setForm({ name: "", description: "" });
-    setFormError(null);
-    setModalOpen(true);
-  }
+  function openModal() { setForm({ name: "", description: "" }); setFormError(null); setModalOpen(true); }
 
   async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    setBusy(true);
-    setFormError(null);
+    e.preventDefault(); if (!form.name.trim()) return;
+    setBusy(true); setFormError(null);
     try {
-      const created = await apiFetch<Category>("/categories", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          description: form.description.trim() || undefined,
-        }),
-      });
-      setCategories((prev) =>
-        [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
-      );
+      const created = await apiFetch<Category>("/categories", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setModalOpen(false);
-    } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Failed to create category.");
-    } finally {
-      setBusy(false);
-    }
+    } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to create category."); }
+    finally { setBusy(false); }
   }
 
-  function openEdit(cat: Category) {
-    setEditTarget(cat);
-    setEditForm({ name: cat.name, description: cat.description ?? "" });
-    setEditError(null);
-  }
+  function openEdit(cat: Category) { setEditTarget(cat); setEditForm({ name: cat.name, description: cat.description ?? "" }); setEditError(null); }
 
   async function handleEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editTarget || !editForm.name.trim()) return;
-    setEditBusy(true);
-    setEditError(null);
+    e.preventDefault(); if (!editTarget || !editForm.name.trim()) return;
+    setEditBusy(true); setEditError(null);
     try {
-      const updated = await apiFetch<Category>(`/categories/${editTarget.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: editForm.name.trim(),
-          description: editForm.description.trim() || undefined,
-        }),
-      });
-      setCategories((prev) =>
-        prev
-          .map((c) => (c.id === updated.id ? updated : c))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
+      const updated = await apiFetch<Category>(`/categories/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined }) });
+      setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)).sort((a, b) => a.name.localeCompare(b.name)));
       setEditTarget(null);
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : "Failed to update category.");
-    } finally {
-      setEditBusy(false);
-    }
+    } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update category."); }
+    finally { setEditBusy(false); }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeletingId(deleteTarget.id);
-    setActionError(null);
-    try {
-      await apiFetch(`/categories/${deleteTarget.id}`, { method: "DELETE" });
-      setCategories((prev) => prev.filter((c) => c.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Failed to delete.");
-      setDeleteTarget(null);
-    } finally {
-      setDeletingId(null);
-    }
+    if (!deleteTarget) return; setDeletingId(deleteTarget.id); setActionError(null);
+    try { await apiFetch(`/categories/${deleteTarget.id}`, { method: "DELETE" }); setCategories((prev) => prev.filter((c) => c.id !== deleteTarget.id)); setDeleteTarget(null); }
+    catch (err: unknown) { setActionError(err instanceof Error ? err.message : "Failed to delete."); setDeleteTarget(null); }
+    finally { setDeletingId(null); }
   }
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
+      <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
         <div>
-          <h2 className="text-[22px] font-medium text-on-background mb-1">Categories</h2>
-          <p className="text-sm text-outline">Manage your product categories.</p>
+          <h2 className="text-lg font-semibold text-foreground">Categories</h2>
+          <p className="text-sm text-muted-foreground">Manage your product categories.</p>
         </div>
-        <button
-          type="button"
-          onClick={openModal}
-          className="bg-[#1a1a1a] text-white border-none py-3 px-6 text-xs font-semibold tracking-[0.12em] uppercase cursor-pointer flex items-center gap-2 transition-colors font-inherit rounded-xl hover:bg-primary"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            className="w-3.5 h-3.5" aria-hidden="true">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Create Category
-        </button>
+        <Button onClick={openModal} size="sm"><Plus className="size-4" /> Create Category</Button>
       </div>
 
-      {loading && (
-        <div className="flex flex-col gap-2" aria-busy="true">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-white border border-[#e8e8e8] rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      )}
-      {fetchError && <p className="text-[13px] text-error" role="alert">{fetchError}</p>}
-      {actionError && <p className="mb-4 text-[13px] text-error" role="alert">{actionError}</p>}
+      {loading && <div className="space-y-2" aria-busy="true">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>}
+      {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
+      {actionError && <p className="mb-3 text-sm text-destructive" role="alert">{actionError}</p>}
 
       {!loading && !fetchError && categories.length === 0 && (
-        <div className="py-12 px-6 text-center border border-dashed border-outline-variant text-outline rounded-2xl">
-          <p className="text-[15px] mb-3">No categories yet.</p>
-          <button
-            type="button"
-            onClick={openModal}
-            className="bg-transparent border-none text-primary text-[13px] font-semibold cursor-pointer underline font-inherit"
-          >
-            Create your first category
-          </button>
+        <div className="py-12 text-center border border-dashed border-border rounded-lg text-muted-foreground">
+          <p className="mb-2">No categories yet.</p>
+          <Button variant="link" onClick={openModal}>Create your first category</Button>
         </div>
       )}
 
       {!loading && categories.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          {/* Desktop table */}
-          <div className="hidden sm:block">
-            <AdminTable<Category>
-              columns={[
-                {
-                  key: "name",
-                  header: "Name",
-                  render: (cat) => (
-                    <span className="text-[13px] font-medium text-on-background">
-                      {cat.name}
-                    </span>
-                  ),
-                },
-                {
-                  key: "description",
-                  header: "Description",
-                  cellClassName: "break-words",
-                  render: (cat) => cat.description ?? <em className="opacity-50">No description</em>,
-                },
-                {
-                  key: "actions",
-                  header: "Actions",
-                  render: (cat) => (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(cat)}
-                        aria-label={`Edit ${cat.name}`}
-                        className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                          className="w-[17px] h-[17px]" aria-hidden="true">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(cat)}
-                        disabled={deletingId === cat.id}
-                        aria-label={`Delete ${cat.name}`}
-                        className={`bg-transparent border-none p-1 transition-opacity ${
-                          deletingId === cat.id
-                            ? "cursor-not-allowed text-outline-variant opacity-40"
-                            : "cursor-pointer text-error"
-                        }`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                          className="w-[17px] h-[17px]" aria-hidden="true">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6M14 11v6" />
-                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                        </svg>
-                      </button>
-                    </div>
-                  ),
-                },
-              ]}
-              rows={categories}
-              getRowKey={(c) => c.id}
-            />
+        <>
+          <div className="hidden sm:block border border-border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow><TableHead>Name</TableHead><TableHead>Description</TableHead><TableHead className="w-20">Actions</TableHead></TableRow>
+              </TableHeader>
+              <TableBody>
+                {categories.map((cat) => (
+                  <TableRow key={cat.id}>
+                    <TableCell className="font-medium">{cat.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{cat.description ?? <em className="opacity-50">—</em>}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon-xs" onClick={() => openEdit(cat)} aria-label={`Edit ${cat.name}`}><Pencil className="size-3.5" /></Button>
+                        <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(cat)} disabled={deletingId === cat.id}
+                          aria-label={`Delete ${cat.name}`} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Mobile cards */}
-          <div className="sm:hidden flex flex-col gap-0.5">
+          <div className="sm:hidden flex flex-col gap-2">
             {categories.map((cat) => (
-              <div
-                key={cat.id}
-                className="flex flex-col gap-2 py-3 px-4 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-2xl"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-[15px] font-medium text-on-background">
-                      {cat.name}
-                    </span>
-                    <div className="text-sm text-outline break-words">
-                      {cat.description ?? <em className="opacity-50">No description</em>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(cat)}
-                      aria-label={`Edit ${cat.name}`}
-                      className="bg-transparent border-none p-1 cursor-pointer text-primary hover:text-[#574500]"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                        className="w-[17px] h-[17px]" aria-hidden="true">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(cat)}
-                      disabled={deletingId === cat.id}
-                      aria-label={`Delete ${cat.name}`}
-                      className={`bg-transparent border-none p-1 transition-opacity ${
-                        deletingId === cat.id
-                          ? "cursor-not-allowed text-outline-variant opacity-40"
-                          : "cursor-pointer text-error"
-                      }`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                        className="w-[17px] h-[17px]" aria-hidden="true">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6M14 11v6" />
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                      </svg>
-                    </button>
-                  </div>
+              <div key={cat.id} className="flex items-start justify-between gap-3 p-3 bg-card border border-border rounded-lg">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{cat.name}</p>
+                  <p className="text-xs text-muted-foreground break-words">{cat.description ?? <em className="opacity-50">No description</em>}</p>
+                </div>
+                <div className="flex gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon-xs" onClick={() => openEdit(cat)}><Pencil className="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(cat)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create Category" maxWidth="max-w-[460px]">
-        <form onSubmit={handleCreate} className="flex flex-col gap-6">
-          <div>
-            <label className={labelClass} htmlFor="cat-name">Name</label>
-            <input
-              id="cat-name"
-              type="text"
-              placeholder="e.g. Moisturisers"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              data-autofocus
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="cat-desc">
-              Description <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <textarea
-              id="cat-desc"
-              placeholder="Brief description of this category"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              rows={3}
-              className={`resize-y ${fieldClass}`}
-            />
-          </div>
-          {formError && <p className="text-[13px] text-error" role="alert">{formError}</p>}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="bg-transparent border border-outline-variant hover:border-primary py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className={`border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl font-inherit text-white ${
-                busy ? "bg-[#4a3d00] cursor-not-allowed opacity-70" : "bg-[#1a1a1a] hover:bg-primary cursor-pointer"
-              }`}
-            >
-              {busy ? "Creating…" : "Create"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Create Category</DialogTitle></DialogHeader>
+          <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <div className="space-y-1.5"><Label htmlFor="cat-name">Name</Label><Input id="cat-name" placeholder="e.g. Moisturisers" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required data-autofocus /></div>
+            <div className="space-y-1.5"><Label htmlFor="cat-desc">Description <span className="font-normal text-muted-foreground">(optional)</span></Label><textarea id="cat-desc" placeholder="Brief description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y min-h-[60px]" /></div>
+            {formError && <p className="text-sm text-destructive" role="alert">{formError}</p>}
+            <DialogFooter className="gap-2 sm:gap-2"><Button variant="outline" type="button" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Category" maxWidth="max-w-[460px]">
-        <form onSubmit={handleEdit} className="flex flex-col gap-6">
-          <div>
-            <label className={labelClass} htmlFor="edit-cat-name">Name</label>
-            <input
-              id="edit-cat-name"
-              type="text"
-              value={editForm.name}
-              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              data-autofocus
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="edit-cat-desc">
-              Description <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <textarea
-              id="edit-cat-desc"
-              value={editForm.description}
-              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-              rows={3}
-              className={`resize-y ${fieldClass}`}
-            />
-          </div>
-          {editError && <p className="text-[13px] text-error" role="alert">{editError}</p>}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setEditTarget(null)}
-              className="bg-transparent border border-outline-variant hover:border-primary py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={editBusy}
-              className={`border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl font-inherit text-white ${
-                editBusy ? "bg-[#4a3d00] cursor-not-allowed opacity-70" : "bg-[#1a1a1a] hover:bg-primary cursor-pointer"
-              }`}
-            >
-              {editBusy ? "Updating…" : "Update"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Edit Category</DialogTitle></DialogHeader>
+          <form onSubmit={handleEdit} className="flex flex-col gap-4">
+            <div className="space-y-1.5"><Label htmlFor="edit-cat-name">Name</Label><Input id="edit-cat-name" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} required data-autofocus /></div>
+            <div className="space-y-1.5"><Label htmlFor="edit-cat-desc">Description <span className="font-normal text-muted-foreground">(optional)</span></Label><textarea id="edit-cat-desc" value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y min-h-[60px]" /></div>
+            {editError && <p className="text-sm text-destructive" role="alert">{editError}</p>}
+            <DialogFooter className="gap-2 sm:gap-2"><Button variant="outline" type="button" onClick={() => setEditTarget(null)}>Cancel</Button><Button type="submit" disabled={editBusy}>{editBusy ? "Updating…" : "Update"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Delete Category"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-        busy={!!deletingId}
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      <ConfirmModal open={!!deleteTarget} title="Delete Category" message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        confirmLabel="Delete" variant="danger" busy={!!deletingId} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
     </>
   );
 }

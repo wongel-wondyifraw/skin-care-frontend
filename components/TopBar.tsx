@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { LogOut, User } from "lucide-react";
 import { navItems } from "./Sidebar";
-import { pageTitleForPath } from "../lib/nav";
+import { pageTitleForPath } from "@/lib/nav";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import ConfirmModal from "./ConfirmModal";
 
 export default function TopBar({
@@ -16,54 +20,53 @@ export default function TopBar({
   const pathname = usePathname();
   const title = pageTitleForPath(pathname, navItems);
   const [showLogout, setShowLogout] = useState(false);
+  const initials = adminName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <>
-      {/* Desktop top bar */}
-      <header className="hidden lg:flex items-center justify-between px-8 h-16 bg-white border-b border-[#d0c5af] sticky top-0 z-10">
-        <span className="uppercase text-[11px] tracking-[0.15em] font-semibold text-[#7f7663]">
+      {/* Desktop */}
+      <header className="hidden lg:flex items-center justify-between px-6 h-14 bg-card border-b border-border sticky top-0 z-10">
+        <span className="text-sm font-medium text-muted-foreground tracking-wide">
           {title}
         </span>
         <div className="flex items-center gap-3">
           {adminName && (
-            <span className="text-[13px] text-[#4d4635] tracking-[0.02em]">
-              {adminName}
-            </span>
+            <span className="text-sm text-foreground">{adminName}</span>
           )}
-          <div
-            className="w-9 h-9 rounded-full bg-[#fff8e7] border border-[#d0c5af] flex items-center justify-center shrink-0"
-            aria-label={adminName || "Admin user"}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="#735c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              className="w-[18px] h-[18px]" aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </div>
+          <Avatar className="size-8">
+            <AvatarFallback className="bg-accent text-primary text-xs font-medium">
+              {initials || <User className="size-4" />}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </header>
 
-      {/* Mobile top bar */}
-      <header className="flex lg:hidden items-center justify-between px-5 h-14 bg-white border-b border-[#d0c5af] sticky top-0 z-10">
-        <span className="uppercase text-[15px] font-medium text-[#735c00] tracking-[0.2em]">
-          Medaf Skin Care
+      {/* Mobile */}
+      <header className="flex lg:hidden items-center justify-between px-4 h-12 bg-card border-b border-border sticky top-0 z-10">
+        <span className="text-sm font-semibold text-primary tracking-widest uppercase">
+          Medaf
         </span>
         <div className="flex items-center gap-2">
           {adminName && (
-            <span className="text-[12px] text-[#4d4635] tracking-[0.02em] max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="text-xs text-muted-foreground max-w-[80px] truncate">
               {adminName}
             </span>
           )}
           {onSignOut && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setShowLogout(true)}
-              className="text-[11px] uppercase tracking-[0.08em] font-semibold text-[#7f7663] hover:text-[#ba1a1a] bg-transparent border-none cursor-pointer p-1"
               aria-label="Sign out"
+              className="text-muted-foreground hover:text-destructive"
             >
-              Sign out
-            </button>
+              <LogOut className="size-3.5" />
+            </Button>
           )}
         </div>
       </header>

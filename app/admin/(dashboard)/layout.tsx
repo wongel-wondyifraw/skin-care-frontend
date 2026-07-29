@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import Sidebar from "../../../components/Sidebar";
-import TopBar from "../../../components/TopBar";
-import MobileNav from "../../../components/MobileNav";
-import { AdminProvider, useAdmin } from "../../../lib/admin-context";
-import { apiFetch } from "../../../lib/api";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
+import MobileNav from "@/components/MobileNav";
+import { AdminProvider, useAdmin } from "@/lib/admin-context";
+import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardLayout({
   children,
@@ -53,13 +54,13 @@ export default function DashboardLayout({
   if (!ready) {
     return (
       <div className="flex min-h-screen bg-background" aria-busy="true">
-        <div className="hidden lg:block w-60 border-r border-outline-variant bg-white" />
+        <div className="hidden lg:block w-56 border-r border-border bg-card" />
         <div className="flex-1 flex flex-col">
-          <div className="h-14 lg:h-16 border-b border-outline-variant bg-white" />
-          <div className="p-8 space-y-4">
-            <div className="h-8 w-48 bg-[#e8e8e8] rounded-lg animate-pulse" />
-            <div className="h-24 bg-[#e8e8e8] rounded-2xl animate-pulse" />
-            <div className="h-24 bg-[#e8e8e8] rounded-2xl animate-pulse" />
+          <div className="h-14 border-b border-border bg-card" />
+          <div className="p-6 space-y-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
           </div>
         </div>
       </div>
@@ -81,8 +82,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar onSignOut={signOut} />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar adminName={adminName} onSignOut={signOut} />
-        <main className="flex-1 lg:pb-8 pb-24 py-8 px-5 overflow-y-auto no-scrollbar">
-          <div className="max-w-[1200px] mx-auto">{children}</div>
+        <main className="flex-1 lg:pb-8 pb-20 py-6 px-4 lg:px-6 overflow-y-auto no-scrollbar">
+          <div className="max-w-5xl mx-auto">{children}</div>
         </main>
         <MobileNav />
       </div>
