@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
-import { Search } from "lucide-react";
+import { apiFetch, invalidateApiCache } from "@/lib/api";
+import { Search, Trash2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNetwork } from "@/components/NetworkProvider";
+import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
+import ConfirmModal from "@/components/ConfirmModal";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -51,6 +53,11 @@ function telegramChatUrl(customer: Customer) {
   return `tg://user?id=${customer.telegramId}`;
 }
 
+function phoneCallHref(phone: string) {
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  return cleaned ? `tel:${cleaned}` : null;
+}
+
 function TelegramIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
@@ -79,7 +86,22 @@ function ConnectTelegramButton({ customer }: { customer: Customer }) {
   );
 }
 
+function CallButton({ customer }: { customer: Customer }) {
+  const href = phoneCallHref(customer.phone);
+  if (!href) return null;
+
+  return (
+    <Button asChild size="sm" variant="outline">
+      <a href={href} aria-label={`Call ${customer.fullName}`}>
+        <Phone className="size-3.5" />
+        Call
+      </a>
+    </Button>
+  );
+}
+
 export default function CustomersPage() {
+  const toast = useToast();
   const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
@@ -87,6 +109,9 @@ export default function CustomersPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
 
@@ -123,7 +148,7 @@ export default function CustomersPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, search, reconnectKey, clearNetworkError, reportNetworkError]);
+  }, [page, pageSize, search, reconnectKey, refreshKey, clearNetworkError, reportNetworkError]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
@@ -131,6 +156,27 @@ export default function CustomersPage() {
       setPage(totalPages);
     }
   }, [page, totalPages]);
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/customers/${deleteTarget.id}`, {
+        method: "DELETE",
+        toastOnError: false,
+      });
+      toast.success("Customer deleted", `${deleteTarget.fullName} was removed.`);
+      invalidateApiCache("/dashboard-summary");
+      setDeleteTarget(null);
+      if (customers.length === 1 && page > 1) setPage((prev) => prev - 1);
+      else setRefreshKey((prev) => prev + 1);
+    } catch (err: unknown) {
+      toast.error(err);
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <>
@@ -208,7 +254,7 @@ export default function CustomersPage() {
                   <TableHead>Address</TableHead>
                   <TableHead>Skin Type</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-48">Connect</TableHead>
+                  <TableHead className="w-72">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -220,10 +266,28 @@ export default function CustomersPage() {
                     </TableCell>
                     <TableCell>{c.phone}</TableCell>
                     <TableCell className="text-muted-foreground max-w-[160px] truncate">{c.address}</TableCell>
-                    <TableCell>{c.skinType ? <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                    <TableCell>
+                      {c.skinType ? (
+                        <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
                     <TableCell>
-                      <ConnectTelegramButton customer={c} />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <CallButton customer={c} />
+                        <ConnectTelegramButton customer={c} />
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => setDeleteTarget(c)}
+                          aria-label={`Delete ${c.fullName}`}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -234,16 +298,30 @@ export default function CustomersPage() {
           <div className="flex md:hidden flex-col gap-2">
             {customers.map((c) => (
               <div key={c.id} className="p-3 bg-card border border-border rounded-lg">
-                <p className="text-sm font-semibold">{c.fullName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {c.telegramUsername ? `@${c.telegramUsername}` : `ID ${c.telegramId}`} · {c.phone}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{c.fullName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.telegramUsername ? `@${c.telegramUsername}` : `ID ${c.telegramId}`} · {c.phone}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setDeleteTarget(c)}
+                    aria-label={`Delete ${c.fullName}`}
+                    className="text-destructive hover:text-destructive shrink-0"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1 break-words">{c.address}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
                   {c.skinType && <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>}
                   <span>Joined {formatDate(c.createdAt)}</span>
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <CallButton customer={c} />
                   <ConnectTelegramButton customer={c} />
                 </div>
               </div>
@@ -279,6 +357,17 @@ export default function CustomersPage() {
           </div>
         </>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Customer"
+        message={`Are you sure you want to delete "${deleteTarget?.fullName}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }

@@ -8,6 +8,7 @@ import {
   Layers,
   ShoppingBag,
   Users,
+  ClipboardList,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -21,6 +22,7 @@ export const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/categories", label: "Categories & Skin", icon: Layers },
   { href: "/admin/products", label: "Products", icon: ShoppingBag },
+  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
