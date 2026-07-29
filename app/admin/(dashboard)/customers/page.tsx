@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNetwork } from "@/components/NetworkProvider";
+import { isNetworkError } from "@/lib/errors";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -37,6 +39,7 @@ function formatDate(iso: string) {
 }
 
 export default function CustomersPage() {
+  const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -59,17 +62,27 @@ export default function CustomersPage() {
 
     (async () => {
       try {
-        const data = await apiFetch<PaginatedResponse<Customer>>(`/customers?${params.toString()}`);
+        const data = await apiFetch<PaginatedResponse<Customer>>(`/customers?${params.toString()}`, {
+          toastOnError: false,
+        });
         if (!cancelled) {
           setCustomers(data.items);
           setTotal(data.total);
+          clearNetworkError();
         }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
+        }
+        setFetchError(err instanceof Error ? err.message : "Failed to load customers.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load customers."); }
-      finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, reconnectKey, clearNetworkError, reportNetworkError]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {

@@ -1,23 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, KeyRound, Pencil, UserPlus } from "lucide-react";
+import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
+import { useToast } from "@/components/ToastProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
-/* ─── Profile Section ──────────────────────────────────────── */
+/* ─── Unified Profile Card (inline on mobile + desktop) ─────── */
 
-function ProfileSection() {
+function ProfileCard() {
+  const toast = useToast();
   const { adminName, setAdminName } = useAdmin();
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState(adminName);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -25,27 +26,14 @@ function ProfileSection() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [busy, setBusy] = useState(false);
-
-  function openModal() {
-    setName(adminName);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setShowCurrentPassword(false);
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-    setStatus(null);
-    setOpen(true);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      setStatus({ ok: false, msg: "Name is required." });
+      toast.error("Name is required.");
       return;
     }
 
@@ -54,97 +42,71 @@ function ProfileSection() {
 
     if (wantsPasswordChange) {
       if (!currentPassword) {
-        setStatus({ ok: false, msg: "Enter your current password." });
+        toast.error("Enter your current password.");
         return;
       }
       if (newPassword !== confirmPassword) {
-        setStatus({ ok: false, msg: "Passwords do not match." });
+        toast.error("Passwords do not match.");
         return;
       }
       if (newPassword.length < 6) {
-        setStatus({ ok: false, msg: "New password must be at least 6 characters." });
+        toast.error("New password must be at least 6 characters.");
         return;
       }
     }
 
     setBusy(true);
-    setStatus(null);
     try {
       const res = await apiFetch<{ name: string }>("/admin-users/profile", {
         method: "PATCH",
+        toastOnError: false,
         body: JSON.stringify({
           name: trimmedName,
           ...(wantsPasswordChange ? { currentPassword, newPassword } : {}),
         }),
       });
       setAdminName(res.name);
-      setStatus({
-        ok: true,
-        msg: wantsPasswordChange ? "Profile and password updated." : "Profile updated.",
-      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setOpen(false);
+      toast.success(
+        wantsPasswordChange ? "Profile and password updated" : "Profile updated",
+      );
     } catch (err: unknown) {
-      setStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to update profile." });
+      toast.error(err);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="max-w-md space-y-5">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Profile</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Display Name</p>
-              <p className="text-sm font-medium text-foreground">{adminName || "Administrator"}</p>
-            </div>
-            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
-              <KeyRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">Name and password</p>
-                <p className="text-xs text-muted-foreground">
-                  Update your display name and password from one shared edit flow.
-                </p>
-              </div>
-            </div>
-            {status && (
-              <p
-                className={`text-sm ${status.ok ? "text-primary" : "text-destructive"}`}
-                role="alert"
-              >
-                {status.msg}
-              </p>
-            )}
-            <Button type="button" size="sm" className="self-start" onClick={openModal}>
-              <Pencil className="size-4" /> Edit Profile
-            </Button>
+    <Card className="max-w-md">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Your Profile</CardTitle>
+        <CardDescription>
+          Update your display name and password in one place.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="profile-name">Display Name</Label>
+            <Input
+              id="profile-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           </div>
-        </CardContent>
-      </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="profile-name">Name</Label>
-              <Input
-                id="profile-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                data-autofocus
-              />
+          <div className="border-t border-border pt-4 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Change Password</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Leave blank if you only want to update your name.
+              </p>
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="current-pw">Current Password</Label>
               <div className="relative">
@@ -168,6 +130,7 @@ function ProfileSection() {
                 </Button>
               </div>
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="new-pw">New Password</Label>
               <div className="relative">
@@ -191,6 +154,7 @@ function ProfileSection() {
                 </Button>
               </div>
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="confirm-pw">Confirm Password</Label>
               <div className="relative">
@@ -214,39 +178,24 @@ function ProfileSection() {
                 </Button>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Leave the password fields empty if you only want to change your name.
-            </p>
-            {status && open && (
-              <p
-                className={`text-sm ${status.ok ? "text-primary" : "text-destructive"}`}
-                role="alert"
-              >
-                {status.msg}
-              </p>
-            )}
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={busy}>
-                {busy ? "Saving…" : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </div>
+
+          <Button type="submit" disabled={busy} className="self-start" size="sm">
+            {busy ? "Saving…" : "Save Changes"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
-/* ─── Add Admin Form (shared between tab and dialog) ───────── */
+/* ─── Add Admin Form ───────────────────────────────────────── */
 
 function AddAdminForm() {
+  const toast = useToast();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -254,14 +203,24 @@ function AddAdminForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (form.password.length < 6) { setStatus({ ok: false, msg: "Password must be at least 6 characters." }); return; }
-    setBusy(true); setStatus(null);
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    setBusy(true);
     try {
-      const res = await apiFetch<{ name: string; email: string }>("/admin-users", { method: "POST", body: JSON.stringify(form) });
-      setStatus({ ok: true, msg: `Admin "${res.name}" (${res.email}) created.` });
+      const res = await apiFetch<{ name: string; email: string }>("/admin-users", {
+        method: "POST",
+        toastOnError: false,
+        body: JSON.stringify(form),
+      });
+      toast.success("Admin created", `${res.name} (${res.email}) can now sign in.`);
       setForm({ name: "", email: "", password: "" });
-    } catch (err: unknown) { setStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to create admin." }); }
-    finally { setBusy(false); }
+    } catch (err: unknown) {
+      toast.error(err);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -286,7 +245,6 @@ function AddAdminForm() {
           </Button>
         </div>
       </div>
-      {status && <p className={`text-sm ${status.ok ? "text-primary" : "text-destructive"}`} role="alert">{status.msg}</p>}
       <Button type="submit" disabled={busy} size="sm" className="self-start">{busy ? "Creating…" : "Create Admin"}</Button>
     </form>
   );
@@ -299,12 +257,11 @@ export default function SettingsPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Settings</h2>
           <p className="text-sm text-muted-foreground">Manage your profile and admin accounts.</p>
         </div>
-        {/* Mobile-only button to open Add Admin as a dialog */}
         <Button
           onClick={() => setAddAdminOpen(true)}
           size="sm"
@@ -314,7 +271,7 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      {/* Desktop: Tabs for Profile and Add Admin */}
+      {/* Desktop: tabs with unified profile card + add admin */}
       <div className="hidden lg:block">
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="mb-4">
@@ -323,28 +280,28 @@ export default function SettingsPage() {
           </TabsList>
 
           <TabsContent value="profile">
-            <ProfileSection />
+            <ProfileCard />
           </TabsContent>
 
           <TabsContent value="add-admin">
-            <div className="max-w-md">
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Create Administrator</CardTitle></CardHeader>
-                <CardContent>
-                  <AddAdminForm />
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="max-w-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Create Administrator</CardTitle>
+                <CardDescription>Invite another admin to manage the catalogue.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AddAdminForm />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Mobile: same profile edit flow as desktop */}
+      {/* Mobile: profile is a single card; add admin via dialog */}
       <div className="lg:hidden">
-        <ProfileSection />
+        <ProfileCard />
       </div>
 
-      {/* Mobile Add Admin Dialog */}
       <Dialog open={addAdminOpen} onOpenChange={setAddAdminOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Add Admin</DialogTitle></DialogHeader>

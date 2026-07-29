@@ -1,3 +1,7 @@
+import { ApiError, isNetworkError, sanitizeErrorMessage } from "@/lib/errors";
+import { getToast } from "@/components/ToastProvider";
+import { notifyNetworkLoss } from "@/components/NetworkProvider";
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
 
 type CacheEntry<T> = {
@@ -11,32 +15,65 @@ function cacheKey(path: string) {
   return `GET:${path}`;
 }
 
+type ApiFetchOptions = RequestInit & {
+  /** When true (default for mutations), show a toast on failure. */
+  toastOnError?: boolean;
+};
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
 ): Promise<T> {
+  const { toastOnError, ...fetchOptions } = options;
+  const method = (fetchOptions.method ?? "GET").toUpperCase();
+  const shouldToast =
+    toastOnError ?? (method !== "GET" && method !== "HEAD");
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    const err = new ApiError(
+      "Connection lost. Trying to reconnect…",
+      0,
+      "NETWORK",
+    );
+    notifyNetworkLoss();
+    throw err;
+  }
+
   const token = typeof window !== "undefined" ? localStorage.getItem("adminToken") : null;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...fetchOptions,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(fetchOptions.headers ?? {}),
+      },
+    });
+  } catch (cause) {
+    const err = new ApiError(
+      "Connection lost. Trying to reconnect…",
+      0,
+      "NETWORK",
+    );
+    notifyNetworkLoss();
+    // Never toast raw "Failed to fetch" — reconnecting UI handles this.
+    if (shouldToast && !isNetworkError(cause) && !isNetworkError(err)) {
+      getToast()?.error(err);
+    }
+    throw err;
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const msg: string =
-      Array.isArray(body?.message)
-        ? body.message.join(", ")
-        : (body?.message ?? `Request failed (${res.status})`);
-    throw new Error(msg);
+    const safe = sanitizeErrorMessage(body?.message ?? body, res.status);
+    const err = new ApiError(safe, res.status, body?.error);
+    if (shouldToast) getToast()?.error(err);
+    throw err;
   }
 
-  // No body — 204 No Content or empty 200
   if (
     res.status === 204 ||
     res.headers.get("content-length") === "0" ||
@@ -71,7 +108,7 @@ export function apiFetchCached<T>(path: string, ttlMs = 30_000): Promise<T> {
     return cached.promise as Promise<T>;
   }
 
-  const promise = apiFetch<T>(path).catch((error) => {
+  const promise = apiFetch<T>(path, { toastOnError: false }).catch((error) => {
     requestCache.delete(key);
     throw error;
   });

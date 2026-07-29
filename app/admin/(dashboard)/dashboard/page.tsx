@@ -6,6 +6,8 @@ import { ShoppingBag, Layers, Shield, ArrowRight } from "lucide-react";
 import { apiFetchCached } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNetwork } from "@/components/NetworkProvider";
+import { isNetworkError } from "@/lib/errors";
 
 type DashboardSummary = {
   products: number;
@@ -15,6 +17,7 @@ type DashboardSummary = {
 };
 
 export default function DashboardPage() {
+  const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [counts, setCounts] = useState<DashboardSummary>({
     products: 0,
     categories: 0,
@@ -26,13 +29,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const summary = await apiFetchCached<DashboardSummary>("/dashboard-summary", 30_000);
         if (cancelled) return;
         setCounts(summary);
-      } catch {
-        if (!cancelled) setError("Could not retrieve some live counts.");
+        clearNetworkError();
+      } catch (err) {
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
+        }
+        setError("Could not retrieve some live counts.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -40,7 +51,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reconnectKey, clearNetworkError, reportNetworkError]);
 
   const kpis = [
     { title: "Products", value: counts.products, href: "/admin/products", icon: ShoppingBag },

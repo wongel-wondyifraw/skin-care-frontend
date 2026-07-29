@@ -7,27 +7,49 @@ import TopBar from "@/components/TopBar";
 import MobileNav from "@/components/MobileNav";
 import { AdminProvider, useAdmin } from "@/lib/admin-context";
 import { apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
+import { isNetworkError } from "@/lib/errors";
+import { NetworkProvider, useNetwork } from "@/components/NetworkProvider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WifiOff } from "lucide-react";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <NetworkProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </NetworkProvider>
+  );
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const { reconnectKey, offline, reportNetworkError } = useNetwork();
   const [adminName, setAdminName] = useState("");
   const [ready, setReady] = useState(false);
+  const [authOffline, setAuthOffline] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiFetchCached<{ id: string; name: string; email: string }>("/auth/me", 60_000);
+        const data = await apiFetchCached<{ id: string; name: string; email: string }>(
+          "/auth/me",
+          60_000,
+        );
         if (cancelled) return;
         setAdminName(data.name);
+        setAuthOffline(false);
         setReady(true);
-      } catch {
+      } catch (err) {
         if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          setAuthOffline(true);
+          return;
+        }
         localStorage.removeItem("adminToken");
         localStorage.removeItem("adminName");
         document.cookie = "adminToken=; path=/; max-age=0";
@@ -37,11 +59,11 @@ export default function DashboardLayout({
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, reconnectKey, reportNetworkError]);
 
   const handleSignOut = useCallback(async () => {
     try {
-      await apiFetch("/auth/logout", { method: "POST" });
+      await apiFetch("/auth/logout", { method: "POST", toastOnError: false });
     } catch {
       // proceed even if logout API fails
     }
@@ -55,7 +77,6 @@ export default function DashboardLayout({
   if (!ready) {
     return (
       <div className="flex min-h-screen bg-background" aria-busy="true">
-        {/* Sidebar skeleton */}
         <div className="hidden lg:flex lg:flex-col w-56 border-r border-border bg-card p-4 gap-6">
           <Skeleton className="h-6 w-28" />
           <div className="space-y-2">
@@ -65,13 +86,17 @@ export default function DashboardLayout({
           </div>
         </div>
         <div className="flex-1 flex flex-col">
-          {/* TopBar skeleton */}
           <div className="h-14 border-b border-border bg-card flex items-center justify-between px-4">
             <Skeleton className="h-5 w-24" />
             <Skeleton className="size-8 rounded-full" />
           </div>
-          {/* Content skeleton */}
           <div className="p-6 space-y-4">
+            {(authOffline || offline) && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <WifiOff className="size-4 animate-pulse" />
+                <p className="text-sm font-medium">Connection lost. Trying to reconnect…</p>
+              </div>
+            )}
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-4 w-64" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
@@ -81,7 +106,6 @@ export default function DashboardLayout({
             </div>
             <Skeleton className="h-40 w-full rounded-lg" />
           </div>
-          {/* Mobile nav skeleton */}
           <div className="lg:hidden fixed bottom-0 inset-x-0 h-14 border-t border-border bg-card flex items-center justify-around px-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="size-6 rounded" />

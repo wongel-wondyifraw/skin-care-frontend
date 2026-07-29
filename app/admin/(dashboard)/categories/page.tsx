@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ToastProvider";
+import { useNetwork } from "@/components/NetworkProvider";
+import { ApiError, isNetworkError } from "@/lib/errors";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -25,6 +27,8 @@ interface SkinType { id: string; name: string; description: string | null }
 /* ────────────────────────────────────────────────────────────── */
 
 function CategoriesTab() {
+  const toast = useToast();
+  const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -45,25 +49,60 @@ function CategoriesTab() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
-      try { const data = await apiFetchCached<Category[]>("/categories", 5 * 60_000); if (!cancelled) setCategories(data); }
-      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load."); }
-      finally { if (!cancelled) setLoading(false); }
+      try {
+        const data = await apiFetchCached<Category[]>("/categories", 5 * 60_000);
+        if (!cancelled) {
+          setCategories(data);
+          clearNetworkError();
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
+        }
+        setFetchError(err instanceof Error ? err.message : "Failed to load.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reconnectKey, clearNetworkError, reportNetworkError]);
 
   function openModal() { setForm({ name: "", description: "" }); setFormError(null); setModalOpen(true); }
   function openEdit(cat: Category) { setEditTarget(cat); setEditForm({ name: cat.name, description: cat.description ?? "" }); setEditError(null); }
 
   async function handleCreate(e: React.FormEvent) {
-    e.preventDefault(); if (!form.name.trim()) return; setBusy(true); setFormError(null);
+    e.preventDefault(); if (!form.name.trim()) return;
+    const duplicate = categories.find((c) => c.name.trim().toLowerCase() === form.name.trim().toLowerCase());
+    if (duplicate) {
+      const msg = `A category named "${duplicate.name}" already exists. Edit it instead of creating a duplicate.`;
+      setFormError(msg);
+      toast.info("Category already exists", msg);
+      return;
+    }
+    setBusy(true); setFormError(null);
     try {
-      const created = await apiFetch<Category>("/categories", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      const created = await apiFetch<Category>("/categories", {
+        method: "POST",
+        toastOnError: false,
+        body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }),
+      });
       invalidateApiCache("/categories");
       invalidateApiCache("/dashboard-summary");
-      setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name))); setModalOpen(false);
-    } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to create."); } finally { setBusy(false); }
+      setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success("Category created");
+      setModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create.";
+      setFormError(msg);
+      toast.error(err);
+      if (!(err instanceof ApiError && err.status === 409)) {
+        // keep dialog open for other errors too
+      }
+    } finally { setBusy(false); }
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -191,6 +230,8 @@ function CategoriesTab() {
 /* ────────────────────────────────────────────────────────────── */
 
 function SkinTypesTab() {
+  const toast = useToast();
+  const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [skins, setSkins] = useState<SkinType[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -211,26 +252,57 @@ function SkinTypesTab() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
-      try { const data = await apiFetchCached<SkinType[]>("/skin-types", 5 * 60_000); if (!cancelled) setSkins(data); }
-      catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load."); }
-      finally { if (!cancelled) setLoading(false); }
+      try {
+        const data = await apiFetchCached<SkinType[]>("/skin-types", 5 * 60_000);
+        if (!cancelled) {
+          setSkins(data);
+          clearNetworkError();
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
+        }
+        setFetchError(err instanceof Error ? err.message : "Failed to load.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reconnectKey, clearNetworkError, reportNetworkError]);
 
   function openModal() { setForm({ name: "", description: "" }); setFormError(null); setModalOpen(true); }
   function openEdit(skin: SkinType) { setEditTarget(skin); setEditForm({ name: skin.name, description: skin.description ?? "" }); setEditError(null); }
 
   async function handleAdd(e: React.FormEvent) {
-    e.preventDefault(); if (!form.name.trim()) return; setAddBusy(true); setFormError(null);
+    e.preventDefault(); if (!form.name.trim()) return;
+    const duplicate = skins.find((s) => s.name.trim().toLowerCase() === form.name.trim().toLowerCase());
+    if (duplicate) {
+      const msg = `A skin type named "${duplicate.name}" already exists. Edit it instead of creating a duplicate.`;
+      setFormError(msg);
+      toast.info("Skin type already exists", msg);
+      return;
+    }
+    setAddBusy(true); setFormError(null);
     try {
-      const created = await apiFetch<SkinType>("/skin-types", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      const created = await apiFetch<SkinType>("/skin-types", {
+        method: "POST",
+        toastOnError: false,
+        body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }),
+      });
       invalidateApiCache("/skin-types");
       invalidateApiCache("/dashboard-summary");
       setSkins((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm({ name: "", description: "" }); setModalOpen(false);
-    } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to add."); } finally { setAddBusy(false); }
+      setForm({ name: "", description: "" });
+      toast.success("Skin type added");
+      setModalOpen(false);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Failed to add.");
+      toast.error(err);
+    } finally { setAddBusy(false); }
   }
 
   async function handleEdit(e: React.FormEvent) {

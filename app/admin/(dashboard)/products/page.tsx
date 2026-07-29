@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
+import { useToast } from "@/components/ToastProvider";
+import { useNetwork } from "@/components/NetworkProvider";
+import { ApiError, isNetworkError } from "@/lib/errors";
 import {
   Dialog,
   DialogContent,
@@ -159,6 +162,8 @@ function ProductFormFields({
 }
 
 export default function ProductsPage() {
+  const toast = useToast();
+  const { reconnectKey, clearNetworkError, reportNetworkError } = useNetwork();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [skinTypes, setSkinTypes] = useState<SkinType[]>([]);
@@ -192,6 +197,11 @@ export default function ProductsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
+  const [restockTarget, setRestockTarget] = useState<Product | null>(null);
+  const [restockQty, setRestockQty] = useState("10");
+  const [restockBusy, setRestockBusy] = useState(false);
+  const [restockError, setRestockError] = useState<string | null>(null);
+
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
 
@@ -206,16 +216,20 @@ export default function ProductsPage() {
         if (cancelled) return;
         setCategories(c);
         setSkinTypes(s);
+        clearNetworkError();
       } catch (err: unknown) {
-        if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : "Failed to load reference data.");
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
         }
+        setFetchError(err instanceof Error ? err.message : "Failed to load reference data.");
       } finally {
         if (!cancelled) setRefsLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reconnectKey, clearNetworkError, reportNetworkError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,14 +247,20 @@ export default function ProductsPage() {
 
     (async () => {
       try {
-        const data = await apiFetch<PaginatedResponse<Product>>(`/products?${params.toString()}`);
+        const data = await apiFetch<PaginatedResponse<Product>>(`/products?${params.toString()}`, {
+          toastOnError: false,
+        });
         if (cancelled) return;
         setProducts(data.items);
         setTotal(data.total);
+        clearNetworkError();
       } catch (err: unknown) {
-        if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : "Failed to load products.");
+        if (cancelled) return;
+        if (isNetworkError(err)) {
+          reportNetworkError(err);
+          return;
         }
+        setFetchError(err instanceof Error ? err.message : "Failed to load products.");
       } finally {
         if (!cancelled) setListLoading(false);
       }
@@ -249,7 +269,7 @@ export default function ProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, search, filterCategory, filterSkinType, filterStock, refreshKey]);
+  }, [page, pageSize, search, filterCategory, filterSkinType, filterStock, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
@@ -295,15 +315,84 @@ export default function ProductsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !imageFile) { setFormError("Name and image are required."); return; }
+
+    const duplicate = products.find(
+      (p) => p.name.trim().toLowerCase() === form.name.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      const msg = `A product named "${duplicate.name}" already exists. Use Restock to add inventory instead.`;
+      setFormError(msg);
+      toast.info("Product already exists", msg);
+      closeCreate();
+      setRestockTarget(duplicate);
+      setRestockQty("10");
+      setRestockError(null);
+      return;
+    }
+
     setBusy(true); setFormError(null);
     try {
       const up = await uploadImage(imageFile);
-      await apiFetch<Product>("/products", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined, image: up.url, assetId: up.assetId, categoryId: form.categoryId || undefined, skinTypeId: form.skinTypeId || undefined, stock: parseInt(form.stock, 10) || 0, price: parseFloat(form.price) || 0 }) });
+      await apiFetch<Product>("/products", {
+        method: "POST",
+        toastOnError: false,
+        body: JSON.stringify({
+          name: form.name.trim(),
+          description: form.description.trim() || undefined,
+          image: up.url,
+          assetId: up.assetId,
+          categoryId: form.categoryId || undefined,
+          skinTypeId: form.skinTypeId || undefined,
+          stock: parseInt(form.stock, 10) || 0,
+          price: parseFloat(form.price) || 0,
+        }),
+      });
       invalidateApiCache("/dashboard-summary");
+      toast.success("Product created");
       closeCreate();
       setPage(1);
       setRefreshKey((prev) => prev + 1);
-    } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to create product."); } finally { setBusy(false); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create product.";
+      setFormError(msg);
+      toast.error(err);
+      if (err instanceof ApiError && err.status === 409) {
+        // Keep create dialog open so the restock message is visible
+      }
+    } finally { setBusy(false); }
+  }
+
+  function openRestock(prod: Product) {
+    setRestockTarget(prod);
+    setRestockQty("10");
+    setRestockError(null);
+  }
+
+  async function handleRestock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!restockTarget) return;
+    const qty = parseInt(restockQty, 10);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setRestockError("Enter a positive quantity.");
+      return;
+    }
+    setRestockBusy(true);
+    setRestockError(null);
+    try {
+      await apiFetch<Product>(`/products/${restockTarget.id}/restock`, {
+        method: "PATCH",
+        toastOnError: false,
+        body: JSON.stringify({ quantity: qty }),
+      });
+      toast.success("Stock updated", `Added ${qty} units to ${restockTarget.name}.`);
+      setRestockTarget(null);
+      setRefreshKey((prev) => prev + 1);
+    } catch (err: unknown) {
+      setRestockError(err instanceof Error ? err.message : "Failed to restock.");
+      toast.error(err);
+    } finally {
+      setRestockBusy(false);
+    }
   }
 
   function openEdit(prod: Product) { setEditTarget(prod); setEditForm({ name: prod.name, description: prod.description ?? "", stock: String(prod.stock), price: String(prod.price ?? ""), categoryId: prod.categoryId || "", skinTypeId: prod.skinTypeId || "" }); setEditImageFile(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); setEditImagePreview(null); setEditError(null); }
@@ -460,7 +549,7 @@ export default function ProductsPage() {
                   <TableHead>Skin Type</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
-                  <TableHead className="w-20">Actions</TableHead>
+                  <TableHead className="w-36">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -477,7 +566,10 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</TableCell>
                     <TableCell><StockBadge stock={prod.stock} /></TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1">
+                        <Button variant="outline" size="xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
+                          <PackagePlus className="size-3.5" /> Restock
+                        </Button>
                         <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)} aria-label={`Edit ${prod.name}`}>
                           <Pencil className="size-3.5" />
                         </Button>
@@ -503,6 +595,9 @@ export default function ProductsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium">{prod.name}</span>
                     <div className="flex gap-0.5 shrink-0">
+                      <Button variant="ghost" size="icon-xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
+                        <Plus className="size-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)}><Pencil className="size-3.5" /></Button>
                       <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
                     </div>
@@ -576,6 +671,34 @@ export default function ProductsPage() {
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!restockTarget} onOpenChange={(v) => { if (!v) setRestockTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Restock {restockTarget?.name}</DialogTitle></DialogHeader>
+          <form onSubmit={handleRestock} className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Current stock: <span className="font-medium text-foreground">{restockTarget?.stock ?? 0}</span>
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="restock-qty">Quantity to add</Label>
+              <Input
+                id="restock-qty"
+                type="number"
+                min="1"
+                value={restockQty}
+                onChange={(e) => setRestockQty(e.target.value)}
+                required
+                data-autofocus
+              />
+            </div>
+            {restockError && <p className="text-sm text-destructive" role="alert">{restockError}</p>}
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setRestockTarget(null)}>Cancel</Button>
+              <Button type="submit" disabled={restockBusy}>{restockBusy ? "Updating…" : "Add Stock"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
