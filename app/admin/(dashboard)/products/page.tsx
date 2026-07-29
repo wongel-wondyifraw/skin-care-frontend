@@ -141,7 +141,7 @@ function ProductFormFields({
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-image`}>{requireImage ? "Image" : "Replace Image"}</Label>
+        <Label htmlFor={`${idPrefix}-image`}>{requireImage ? "Image" : "Image"}</Label>
         <div className="flex items-center gap-3 flex-wrap">
           {(imagePreview || currentImage) && (
             <div className="relative size-14 rounded-md overflow-hidden border border-border bg-muted shrink-0">
@@ -153,8 +153,31 @@ function ProductFormFields({
               ) : null}
             </div>
           )}
-          <Input id={`${idPrefix}-image`} type="file" accept="image/*" required={requireImage}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onImageSelect(f); }} className="max-w-[220px]" />
+          {(imagePreview || currentImage) ? (
+            <>
+              <input
+                id={`${idPrefix}-image`}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onImageSelect(f); }}
+              />
+              <Button type="button" variant="outline" size="sm" asChild>
+                <label htmlFor={`${idPrefix}-image`} className="cursor-pointer">
+                  {imagePreview ? "Change image" : "Replace image"}
+                </label>
+              </Button>
+            </>
+          ) : (
+            <Input
+              id={`${idPrefix}-image`}
+              type="file"
+              accept="image/*"
+              required={requireImage}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onImageSelect(f); }}
+              className="max-w-[220px]"
+            />
+          )}
         </div>
       </div>
     </div>
@@ -474,7 +497,7 @@ export default function ProductsPage() {
       {initialLoading && (
         <>
           {/* Desktop skeleton */}
-          <div className="hidden lg:block border border-border rounded-lg overflow-hidden" aria-busy="true">
+          <div className="hidden md:block border border-border rounded-lg overflow-hidden" aria-busy="true">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -484,7 +507,7 @@ export default function ProductsPage() {
                   <TableHead><Skeleton className="h-4 w-16" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-12" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-12" /></TableHead>
-                  <TableHead className="w-20"><Skeleton className="h-4 w-14" /></TableHead>
+                  <TableHead className="w-48"><Skeleton className="h-4 w-14" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -496,14 +519,14 @@ export default function ProductsPage() {
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-24" /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
           {/* Mobile skeleton */}
-          <div className="flex lg:hidden flex-col gap-2" aria-busy="true">
+          <div className="flex md:hidden flex-col gap-2" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
                 <Skeleton className="size-14 rounded-md shrink-0" />
@@ -539,7 +562,7 @@ export default function ProductsPage() {
 
       {!initialLoading && !fetchError && products.length > 0 && (
         <>
-          <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
+          <div className="hidden md:block border border-border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -549,7 +572,7 @@ export default function ProductsPage() {
                   <TableHead>Skin Type</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
-                  <TableHead className="w-36">Actions</TableHead>
+                  <TableHead className="w-48">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -566,8 +589,8 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</TableCell>
                     <TableCell><StockBadge stock={prod.stock} /></TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="outline" size="xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
                           <PackagePlus className="size-3.5" /> Restock
                         </Button>
                         <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)} aria-label={`Edit ${prod.name}`}>
@@ -585,7 +608,7 @@ export default function ProductsPage() {
             </Table>
           </div>
 
-          <div className="flex lg:hidden flex-col gap-2">
+          <div className="flex md:hidden flex-col gap-2">
             {products.map((prod) => (
               <div key={prod.id} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
                 <div className="relative size-14 rounded-md overflow-hidden bg-muted shrink-0">

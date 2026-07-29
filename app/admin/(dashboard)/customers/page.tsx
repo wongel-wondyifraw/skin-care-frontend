@@ -15,9 +15,16 @@ import {
 
 type SkinType = { id: string; name: string };
 type Customer = {
-  id: string; telegramId: number; fullName: string; phone: string;
-  address: string; skinTypeId: string | null; skinType: SkinType | null;
-  createdAt: string; updatedAt: string;
+  id: string;
+  telegramId: number;
+  fullName: string;
+  phone: string;
+  address: string;
+  telegramUsername: string | null;
+  skinTypeId: string | null;
+  skinType: SkinType | null;
+  createdAt: string;
+  updatedAt: string;
 };
 type PaginatedResponse<T> = { items: T[]; total: number; page: number; pageSize: number };
 
@@ -36,6 +43,40 @@ function formatDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+}
+
+function telegramChatUrl(customer: Customer) {
+  const username = customer.telegramUsername?.replace(/^@/, "").trim();
+  if (username) return `https://t.me/${username}`;
+  return `tg://user?id=${customer.telegramId}`;
+}
+
+function TelegramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    </svg>
+  );
+}
+
+function ConnectTelegramButton({ customer }: { customer: Customer }) {
+  return (
+    <Button
+      asChild
+      size="sm"
+      className="bg-[#229ED9] hover:bg-[#1b8fc5] text-white border-0"
+    >
+      <a
+        href={telegramChatUrl(customer)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Connect with ${customer.fullName} on Telegram`}
+      >
+        <TelegramIcon className="size-3.5" />
+        Connect on Telegram
+      </a>
+    </Button>
+  );
 }
 
 export default function CustomersPage() {
@@ -107,7 +148,7 @@ export default function CustomersPage() {
       {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
       {loading && (
         <>
-          <div className="hidden lg:block border border-border rounded-lg overflow-hidden" aria-busy="true">
+          <div className="hidden md:block border border-border rounded-lg overflow-hidden" aria-busy="true">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -117,6 +158,7 @@ export default function CustomersPage() {
                   <TableHead><Skeleton className="h-4 w-20" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-16" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-14" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -128,21 +170,19 @@ export default function CustomersPage() {
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-36" /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-          <div className="flex lg:hidden flex-col gap-2" aria-busy="true">
+          <div className="flex md:hidden flex-col gap-2" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="p-3 bg-card border border-border rounded-lg space-y-2">
                 <Skeleton className="h-4 w-3/5" />
                 <Skeleton className="h-3 w-4/5" />
                 <Skeleton className="h-3 w-2/3" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-5 w-14 rounded-full" />
-                  <Skeleton className="h-4 w-20" />
-                </div>
+                <Skeleton className="h-8 w-40" />
               </div>
             ))}
           </div>
@@ -158,38 +198,53 @@ export default function CustomersPage() {
 
       {!loading && !fetchError && customers.length > 0 && (
         <>
-          <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
+          <div className="hidden md:block border border-border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Telegram ID</TableHead><TableHead>Full Name</TableHead><TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead><TableHead>Skin Type</TableHead><TableHead>Joined</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Skin Type</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="w-48">Connect</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {customers.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="text-muted-foreground font-mono text-xs">{c.telegramId}</TableCell>
                     <TableCell className="font-medium">{c.fullName}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {c.telegramUsername ? `@${c.telegramUsername}` : <span className="opacity-50">—</span>}
+                    </TableCell>
                     <TableCell>{c.phone}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-[200px] truncate">{c.address}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[160px] truncate">{c.address}</TableCell>
                     <TableCell>{c.skinType ? <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
+                    <TableCell>
+                      <ConnectTelegramButton customer={c} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          <div className="flex lg:hidden flex-col gap-2">
+          <div className="flex md:hidden flex-col gap-2">
             {customers.map((c) => (
               <div key={c.id} className="p-3 bg-card border border-border rounded-lg">
                 <p className="text-sm font-semibold">{c.fullName}</p>
-                <p className="text-xs text-muted-foreground">Telegram: {c.telegramId} · {c.phone}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.telegramUsername ? `@${c.telegramUsername}` : `ID ${c.telegramId}`} · {c.phone}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1 break-words">{c.address}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
                   {c.skinType && <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>}
                   <span>Joined {formatDate(c.createdAt)}</span>
+                </div>
+                <div className="mt-3">
+                  <ConnectTelegramButton customer={c} />
                 </div>
               </div>
             ))}

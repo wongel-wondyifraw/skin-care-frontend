@@ -8,13 +8,19 @@ import { useToast } from "@/components/ToastProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
-/* ─── Unified Profile Card (inline on mobile + desktop) ─────── */
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "A";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
 
 function ProfileCard() {
   const toast = useToast();
@@ -81,16 +87,19 @@ function ProfileCard() {
 
   return (
     <Card className="max-w-md">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Your Profile</CardTitle>
-        <CardDescription>
-          Update your display name and password in one place.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Avatar className="size-16 text-base">
+              <AvatarFallback className="bg-accent text-primary text-lg font-semibold">
+                {initials(name || adminName || "Admin")}
+              </AvatarFallback>
+            </Avatar>
+            <p className="text-sm font-medium text-foreground">{name || adminName || "Admin"}</p>
+          </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="profile-name">Display Name</Label>
+            <Label htmlFor="profile-name">Name</Label>
             <Input
               id="profile-name"
               value={name}
@@ -99,97 +108,86 @@ function ProfileCard() {
             />
           </div>
 
-          <div className="border-t border-border pt-4 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Change Password</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Leave blank if you only want to update your name.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="current-pw">Current Password</Label>
-              <div className="relative">
-                <Input
-                  id="current-pw"
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  autoComplete="current-password"
-                  className="pr-9"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowCurrentPassword((v) => !v)}
-                  aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
-                >
-                  {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="new-pw">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="new-pw"
-                  type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  autoComplete="new-password"
-                  className="pr-9"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowNewPassword((v) => !v)}
-                  aria-label={showNewPassword ? "Hide new password" : "Show new password"}
-                >
-                  {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm-pw">Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirm-pw"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  autoComplete="new-password"
-                  className="pr-9"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                >
-                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </Button>
-              </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="current-pw">Current Password</Label>
+            <div className="relative">
+              <Input
+                id="current-pw"
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                className="pr-9"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowCurrentPassword((v) => !v)}
+                aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+              >
+                {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
             </div>
           </div>
 
-          <Button type="submit" disabled={busy} className="self-start" size="sm">
-            {busy ? "Saving…" : "Save Changes"}
+          <div className="space-y-1.5">
+            <Label htmlFor="new-pw">New Password</Label>
+            <div className="relative">
+              <Input
+                id="new-pw"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                className="pr-9"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowNewPassword((v) => !v)}
+                aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+              >
+                {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-pw">Confirm Password</Label>
+            <div className="relative">
+              <Input
+                id="confirm-pw"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                className="pr-9"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <Button type="submit" disabled={busy} className="w-full" size="sm">
+            {busy ? "Saving…" : "Save"}
           </Button>
         </form>
       </CardContent>
     </Card>
   );
 }
-
-/* ─── Add Admin Form ───────────────────────────────────────── */
 
 function AddAdminForm() {
   const toast = useToast();
@@ -250,8 +248,6 @@ function AddAdminForm() {
   );
 }
 
-/* ─── Main Settings Page ───────────────────────────────────── */
-
 export default function SettingsPage() {
   const [addAdminOpen, setAddAdminOpen] = useState(false);
 
@@ -271,7 +267,6 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      {/* Desktop: tabs with unified profile card + add admin */}
       <div className="hidden lg:block">
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="mb-4">
@@ -297,7 +292,6 @@ export default function SettingsPage() {
         </Tabs>
       </div>
 
-      {/* Mobile: profile is a single card; add admin via dialog */}
       <div className="lg:hidden">
         <ProfileCard />
       </div>
