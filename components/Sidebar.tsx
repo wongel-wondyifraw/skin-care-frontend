@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ConfirmModal from "./ConfirmModal";
 import { useState } from "react";
+import { isNavActive } from "../lib/nav";
 
 export const navItems = [
   {
@@ -109,11 +110,12 @@ export default function Sidebar({
 
         <nav className="flex flex-col py-4 flex-1" aria-label="Sidebar navigation">
           {navItems.map(({ href, label, icon }) => {
-            const active = pathname === href;
+            const active = isNavActive(pathname, href);
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 px-6 py-3 no-underline text-sm tracking-[0.02em] transition-all duration-200 border-l-2 ${
                   active
                     ? "text-[#735c00] bg-[#fff8e7] border-[#735c00] font-semibold"

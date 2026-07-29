@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch, API_BASE_URL } from "../../../../lib/api";
 import ConfirmModal from "../../../../components/ConfirmModal";
+import Modal from "../../../../components/Modal";
 import Image from "next/image";
 
 interface Category {
@@ -32,89 +33,352 @@ interface Product {
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 
+type ProductForm = {
+  name: string;
+  description: string;
+  categoryId: string;
+  skinTypeId: string;
+  stock: string;
+  price: string;
+};
+
+const emptyForm = (): ProductForm => ({
+  name: "",
+  description: "",
+  categoryId: "",
+  skinTypeId: "",
+  stock: "0",
+  price: "",
+});
+
+const fieldClass =
+  "border border-outline-variant rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-on-background outline-none font-inherit transition-colors duration-200 focus:border-primary";
+const labelClass =
+  "block text-[11px] font-semibold tracking-[0.12em] uppercase text-outline mb-1";
+const selectClass =
+  "border border-outline-variant rounded-xl py-2 px-3 text-sm bg-white text-on-background outline-none font-inherit focus:border-primary transition-colors duration-200";
+
+async function uploadImage(file: File): Promise<{ url: string; assetId: string }> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const token = localStorage.getItem("adminToken");
+  const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!uploadRes.ok) throw new Error("Image upload failed");
+  return uploadRes.json();
+}
+
+function stockBadge(stock: number) {
+  if (stock === 0) {
+    return (
+      <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-error">
+        Out of Stock
+      </span>
+    );
+  }
+  if (stock < 10) {
+    return (
+      <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#fff8e7] text-primary">
+        {stock} — Low
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#fff8e7] text-[#4d4635]">
+      {stock} in stock
+    </span>
+  );
+}
+
+function ProductFormFields({
+  idPrefix,
+  form,
+  setForm,
+  categories,
+  skinTypes,
+  imagePreview,
+  currentImage,
+  currentName,
+  onImageSelect,
+  requireImage,
+}: {
+  idPrefix: string;
+  form: ProductForm;
+  setForm: React.Dispatch<React.SetStateAction<ProductForm>>;
+  categories: Category[];
+  skinTypes: SkinType[];
+  imagePreview: string | null;
+  currentImage?: string;
+  currentName?: string;
+  onImageSelect: (file: File) => void;
+  requireImage?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <label className={labelClass} htmlFor={`${idPrefix}-name`}>Name</label>
+        <input
+          id={`${idPrefix}-name`}
+          type="text"
+          placeholder="e.g. Cleansing Oil"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          required
+          data-autofocus
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor={`${idPrefix}-desc`}>
+          Description <span className="font-normal normal-case">(optional)</span>
+        </label>
+        <textarea
+          id={`${idPrefix}-desc`}
+          placeholder="Brief description"
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          rows={2}
+          className={`resize-y ${fieldClass}`}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor={`${idPrefix}-category`}>Category</label>
+        <select
+          id={`${idPrefix}-category`}
+          value={form.categoryId}
+          onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+          className={fieldClass}
+        >
+          <option value="">— Select category —</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={labelClass} htmlFor={`${idPrefix}-skin`}>Skin Type</label>
+        <select
+          id={`${idPrefix}-skin`}
+          value={form.skinTypeId}
+          onChange={(e) => setForm((f) => ({ ...f, skinTypeId: e.target.value }))}
+          className={fieldClass}
+        >
+          <option value="">— Select skin type —</option>
+          {skinTypes.map((skin) => (
+            <option key={skin.id} value={skin.id}>{skin.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-stock`}>Stock Level</label>
+          <input
+            id={`${idPrefix}-stock`}
+            type="number"
+            min="0"
+            value={form.stock}
+            onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-price`}>Price (ETB)</label>
+          <input
+            id={`${idPrefix}-price`}
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={form.price}
+            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+            className={fieldClass}
+          />
+        </div>
+      </div>
+      <div>
+        <label className={labelClass} htmlFor={`${idPrefix}-image`}>
+          {requireImage ? "Image" : "Replace Image"}{" "}
+          {!requireImage && <span className="font-normal normal-case">(optional)</span>}
+        </label>
+        <div className="flex items-center gap-4 mt-1 flex-wrap">
+          {(imagePreview || currentImage) && (
+            <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-outline-variant bg-[#f3f3f3] shrink-0">
+              {imagePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : currentImage ? (
+                <Image src={currentImage} alt={currentName || "Product"} fill className="object-cover" sizes="64px" />
+              ) : null}
+            </div>
+          )}
+          <input
+            id={`${idPrefix}-image`}
+            type="file"
+            accept="image/*"
+            required={requireImage}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImageSelect(file);
+            }}
+            className="text-sm"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductActions({
+  prod,
+  deletingId,
+  onEdit,
+  onDelete,
+}: {
+  prod: Product;
+  deletingId: string | null;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Edit ${prod.name}`}
+        className="bg-transparent border-none p-1.5 cursor-pointer text-primary hover:text-[#574500] transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          className="w-[17px] h-[17px]" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deletingId === prod.id}
+        aria-label={`Delete ${prod.name}`}
+        className={`bg-transparent border-none p-1.5 transition-opacity ${
+          deletingId === prod.id
+            ? "cursor-not-allowed text-outline-variant opacity-40"
+            : "cursor-pointer text-error"
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          className="w-[17px] h-[17px]" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [skinTypes, setSkinTypes] = useState<SkinType[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  // ── Filters ──
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterSkinType, setFilterSkinType] = useState("");
   const [filterStock, setFilterStock] = useState<StockFilter>("all");
 
-  // ── Create Modal ──
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
+  const [form, setForm] = useState<ProductForm>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // ── Edit Modal ──
   const [editTarget, setEditTarget] = useState<Product | null>(null);
-  const [editForm, setEditForm] = useState({ stock: "0", price: "", categoryId: "", skinTypeId: "" });
+  const [editForm, setEditForm] = useState<ProductForm>(emptyForm);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // ── Delete ──
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setFetchError(null);
-    try {
-      const [prodData, catData, skinData] = await Promise.all([
-        apiFetch<Product[]>("/products"),
-        apiFetch<Category[]>("/categories"),
-        apiFetch<SkinType[]>("/skin-types"),
-      ]);
-      setProducts(prodData);
-      setCategories(catData);
-      setSkinTypes(skinData);
-    } catch (err: unknown) {
-      setFetchError(err instanceof Error ? err.message : "Failed to load data.");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [prodData, catData, skinData] = await Promise.all([
+          apiFetch<Product[]>("/products"),
+          apiFetch<Category[]>("/categories"),
+          apiFetch<SkinType[]>("/skin-types"),
+        ]);
+        if (cancelled) return;
+        setProducts(prodData);
+        setCategories(catData);
+        setSkinTypes(skinData);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setFetchError(err instanceof Error ? err.message : "Failed to load data.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  // ── Filtered products ──
   const filtered = useMemo(() => {
     let list = products;
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((p) => p.name.toLowerCase().includes(q));
     }
-    if (filterCategory) {
-      list = list.filter((p) => p.categoryId === filterCategory);
-    }
-    if (filterSkinType) {
-      list = list.filter((p) => p.skinTypeId === filterSkinType);
-    }
+    if (filterCategory) list = list.filter((p) => p.categoryId === filterCategory);
+    if (filterSkinType) list = list.filter((p) => p.skinTypeId === filterSkinType);
     if (filterStock === "out_of_stock") list = list.filter((p) => p.stock === 0);
     else if (filterStock === "low_stock") list = list.filter((p) => p.stock > 0 && p.stock < 10);
     else if (filterStock === "in_stock") list = list.filter((p) => p.stock > 0);
     return list;
   }, [products, search, filterCategory, filterSkinType, filterStock]);
 
-  // ── Create ──
+  const filtersActive =
+    !!search.trim() || !!filterCategory || !!filterSkinType || filterStock !== "all";
+
+  function clearFilters() {
+    setSearch("");
+    setFilterCategory("");
+    setFilterSkinType("");
+    setFilterStock("all");
+  }
+
   function openModal() {
-    setForm({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
+    setForm(emptyForm());
     setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     setFormError(null);
     setModalOpen(true);
   }
 
+  function closeCreate() {
+    setModalOpen(false);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    setImageFile(null);
+  }
+
   function handleImageSelect(file: File) {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   }
@@ -128,17 +392,7 @@ export default function ProductsPage() {
     setBusy(true);
     setFormError(null);
     try {
-      const formData = new FormData();
-      formData.append("image", imageFile);
-      const token = localStorage.getItem("adminToken");
-      const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!uploadRes.ok) throw new Error("Image upload failed");
-      const uploadData = await uploadRes.json();
-
+      const uploadData = await uploadImage(imageFile);
       const created = await apiFetch<Product>("/products", {
         method: "POST",
         body: JSON.stringify({
@@ -153,8 +407,7 @@ export default function ProductsPage() {
         }),
       });
       setProducts((prev) => [created, ...prev]);
-      setModalOpen(false);
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      closeCreate();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Failed to create product.");
     } finally {
@@ -162,46 +415,48 @@ export default function ProductsPage() {
     }
   }
 
-  // ── Edit ──
   function openEdit(prod: Product) {
     setEditTarget(prod);
     setEditForm({
+      name: prod.name,
+      description: prod.description ?? "",
       stock: String(prod.stock),
       price: String(prod.price ?? ""),
       categoryId: prod.categoryId || "",
       skinTypeId: prod.skinTypeId || "",
     });
     setEditImageFile(null);
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
     setEditImagePreview(null);
     setEditError(null);
   }
 
+  function closeEdit() {
+    setEditTarget(null);
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    setEditImagePreview(null);
+    setEditImageFile(null);
+  }
+
   function handleEditImageSelect(file: File) {
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
     setEditImageFile(file);
     setEditImagePreview(URL.createObjectURL(file));
   }
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editTarget) return;
+    if (!editTarget || !editForm.name.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
     setEditBusy(true);
     setEditError(null);
     try {
       let imageUrl = editTarget.image;
       let assetId = editTarget.assetId;
-
-      // If a new image was selected, upload it first
       if (editImageFile) {
-        const formData = new FormData();
-        formData.append("image", editImageFile);
-        const token = localStorage.getItem("adminToken");
-        const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error("Image upload failed");
-        const uploadData = await uploadRes.json();
+        const uploadData = await uploadImage(editImageFile);
         imageUrl = uploadData.url;
         assetId = uploadData.assetId;
       }
@@ -209,18 +464,18 @@ export default function ProductsPage() {
       const updated = await apiFetch<Product>(`/products/${editTarget.id}`, {
         method: "PATCH",
         body: JSON.stringify({
+          name: editForm.name.trim(),
+          description: editForm.description.trim() || undefined,
           image: imageUrl,
-          assetId: assetId,
+          assetId,
           stock: parseInt(editForm.stock, 10) || 0,
           price: parseFloat(editForm.price) || 0,
           categoryId: editForm.categoryId || undefined,
           skinTypeId: editForm.skinTypeId || undefined,
         }),
       });
-
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      setEditTarget(null);
-      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+      closeEdit();
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : "Failed to update product.");
     } finally {
@@ -228,44 +483,56 @@ export default function ProductsPage() {
     }
   }
 
-  // ── Delete ──
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeletingId(deleteTarget.id);
+    setActionError(null);
     try {
-      await apiFetch(`/products/${deleteTarget.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+      await apiFetch(`/products/${deleteTarget.id}`, { method: "DELETE" });
       setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete.");
       setDeleteTarget(null);
-      alert(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
       setDeletingId(null);
     }
   }
 
-  function stockBadge(stock: number) {
-    if (stock === 0) return <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">Out of Stock</span>;
-    if (stock < 10) return <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{stock} — Low</span>;
-    return <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{stock} in stock</span>;
-  }
-
-  const selectClass = "border border-[#d0c5af] rounded-xl py-2 px-3 text-sm bg-white text-[#1a1c1c] outline-none font-inherit focus:border-[#735c00] transition-colors duration-200";
+  const modalActions = (onCancel: () => void, busyState: boolean, submitLabel: string) => (
+    <div className="flex gap-3 justify-end mt-6">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="bg-transparent border border-outline-variant hover:border-primary py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        disabled={busyState}
+        className={`border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl transition-colors font-inherit text-white ${
+          busyState
+            ? "bg-[#4a3d00] cursor-not-allowed opacity-70"
+            : "bg-[#1a1a1a] hover:bg-primary cursor-pointer"
+        }`}
+      >
+        {busyState ? "Saving…" : submitLabel}
+      </button>
+    </div>
+  );
 
   return (
     <>
-      {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
         <div>
-          <h2 className="text-[22px] font-medium text-[#1a1c1c] mb-1">Products</h2>
-          <p className="text-sm text-[#7f7663]">Manage your product catalogue.</p>
+          <h2 className="text-[22px] font-medium text-on-background mb-1">Products</h2>
+          <p className="text-sm text-outline">Manage your product catalogue.</p>
         </div>
         <button
+          type="button"
           onClick={openModal}
-          className="bg-[#1a1a1a] text-white border-none py-3 px-6 text-xs font-semibold tracking-[0.12em] uppercase cursor-pointer flex items-center gap-2 transition-colors duration-200 font-inherit rounded-xl hover:bg-[#735c00]"
+          className="bg-[#1a1a1a] text-white border-none py-3 px-6 text-xs font-semibold tracking-[0.12em] uppercase cursor-pointer flex items-center gap-2 transition-colors font-inherit rounded-xl hover:bg-primary"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -277,7 +544,6 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      {/* ── Filters ── */}
       {!loading && products.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 mb-5">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -288,22 +554,30 @@ export default function ProductsPage() {
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
-              type="text"
+              type="search"
               placeholder="Search products…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border border-[#d0c5af] rounded-full py-2 pl-9 pr-3 text-sm bg-white text-[#1a1c1c] outline-none font-inherit w-full focus:border-[#735c00] transition-colors duration-200"
+              className="border border-outline-variant rounded-full py-2 pl-9 pr-3 text-sm bg-white text-on-background outline-none font-inherit w-full focus:border-primary transition-colors"
             />
           </div>
           <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={selectClass}>
             <option value="">All Categories</option>
-            {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
           </select>
           <select value={filterSkinType} onChange={(e) => setFilterSkinType(e.target.value)} className={selectClass}>
             <option value="">All Skin Types</option>
-            {skinTypes.map((skin) => (<option key={skin.id} value={skin.id}>{skin.name}</option>))}
+            {skinTypes.map((skin) => (
+              <option key={skin.id} value={skin.id}>{skin.name}</option>
+            ))}
           </select>
-          <select value={filterStock} onChange={(e) => setFilterStock(e.target.value as StockFilter)} className={selectClass}>
+          <select
+            value={filterStock}
+            onChange={(e) => setFilterStock(e.target.value as StockFilter)}
+            className={selectClass}
+          >
             <option value="all">All Stock</option>
             <option value="in_stock">In Stock</option>
             <option value="low_stock">Low Stock (&lt; 10)</option>
@@ -312,257 +586,166 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* ── List ── */}
-      {loading && <p className="text-sm text-[#7f7663]">Loading…</p>}
-      {fetchError && <p className="text-[13px] text-[#ba1a1a]" role="alert">{fetchError}</p>}
+      {loading && (
+        <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading products">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-[72px] bg-white border border-[#e8e8e8] rounded-[20px] animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {fetchError && (
+        <p className="text-[13px] text-error" role="alert">{fetchError}</p>
+      )}
+      {actionError && (
+        <p className="mb-4 text-[13px] text-error" role="alert">{actionError}</p>
+      )}
+
       {!loading && !fetchError && products.length === 0 && (
-        <div className="py-12 px-6 text-center border border-dashed border-[#d0c5af] text-[#7f7663] rounded-2xl">
+        <div className="py-12 px-6 text-center border border-dashed border-outline-variant text-outline rounded-2xl">
           <p className="text-[15px] mb-3">No products yet.</p>
-          <button onClick={openModal} className="bg-transparent border-none text-[#735c00] text-[13px] font-semibold cursor-pointer underline font-inherit">
+          <button
+            type="button"
+            onClick={openModal}
+            className="bg-transparent border-none text-primary text-[13px] font-semibold cursor-pointer underline font-inherit"
+          >
             Create your first product
           </button>
         </div>
       )}
 
-      {!loading && filtered.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          <div className="grid grid-cols-[80px_1.2fr_1fr_1fr_90px_100px_40px_40px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-[#7f7663] border-b border-[#d0c5af]">
-            <span>Image</span>
-            <span>Name</span>
-            <span>Category</span>
-            <span>Skin Type</span>
-            <span>Price</span>
-            <span>Stock</span>
-            <span></span>
-            <span></span>
-          </div>
-
-          {filtered.map((prod) => (
-            <div
-              key={prod.id}
-              className="grid grid-cols-[80px_1.2fr_1fr_1fr_90px_100px_40px_40px] gap-3 items-center p-3 bg-white border border-[#e8e8e8] hover:border-[#d0c5af] transition-colors duration-200 rounded-[20px]"
+      {!loading && products.length > 0 && filtered.length === 0 && (
+        <div className="py-12 px-6 text-center border border-dashed border-outline-variant text-outline rounded-2xl">
+          <p className="text-[15px] mb-3">No products match your filters.</p>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="bg-transparent border-none text-primary text-[13px] font-semibold cursor-pointer underline font-inherit"
             >
-              <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
-                <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
-              </div>
-              <span className="text-[15px] font-medium text-[#1a1c1c] truncate">{prod.name}</span>
-              <span className="text-sm text-[#7f7663] truncate">
-                {prod.category?.name ?? <em className="opacity-50">Uncategorized</em>}
-              </span>
-              <span className="text-sm text-[#7f7663] truncate">
-                {prod.skinType?.name ?? "All"}
-              </span>
-              <span className="text-sm font-medium text-[#1a1c1c]">
-                {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
-              </span>
-              <div>{stockBadge(prod.stock)}</div>
-              {/* Edit */}
-              <button
-                onClick={() => openEdit(prod)}
-                aria-label={`Edit ${prod.name}`}
-                className="bg-transparent border-none p-1 cursor-pointer text-[#735c00] hover:text-[#574500] transition-colors duration-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                  className="w-[17px] h-[17px]" aria-hidden="true">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              </button>
-              {/* Delete */}
-              <button
-                onClick={() => setDeleteTarget(prod)}
-                disabled={deletingId === prod.id}
-                aria-label={`Delete ${prod.name}`}
-                className={`bg-transparent border-none p-1 transition-opacity duration-200 ${
-                  deletingId === prod.id ? "cursor-not-allowed text-[#d0c5af] opacity-40" : "cursor-pointer text-[#ba1a1a] opacity-100"
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                  className="w-[17px] h-[17px]" aria-hidden="true">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                </svg>
-              </button>
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <>
+          {/* Desktop table */}
+          <div className="hidden lg:flex flex-col gap-0.5">
+            <div className="grid grid-cols-[72px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_90px_110px_80px] gap-3 py-2 px-4 text-[11px] font-semibold tracking-[0.1em] uppercase text-outline border-b border-outline-variant">
+              <span>Image</span>
+              <span>Name</span>
+              <span>Category</span>
+              <span>Skin Type</span>
+              <span>Price</span>
+              <span>Stock</span>
+              <span className="sr-only">Actions</span>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Create Modal ── */}
-      {modalOpen && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center p-5">
-          <div onClick={() => { setModalOpen(false); if (imagePreview) URL.revokeObjectURL(imagePreview); }} className="absolute inset-0 bg-black/35" />
-          <div className="relative bg-white p-10 w-full max-w-[500px] shadow-[0_16px_40px_rgba(0,0,0,0.12)] max-h-[90vh] overflow-y-auto rounded-[20px]">
-            <button onClick={() => { setModalOpen(false); if (imagePreview) URL.revokeObjectURL(imagePreview); }}
-              className="absolute top-4 right-4 bg-transparent border-none cursor-pointer text-[#7f7663] p-1">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <h3 className="text-xl font-medium text-[#1a1c1c] mb-7">Create Product</h3>
-            <form onSubmit={handleCreate} className="flex flex-col gap-5">
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Name</label>
-                <input type="text" placeholder="e.g. Cleansing Oil" value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required autoFocus
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
+            {filtered.map((prod) => (
+              <div
+                key={prod.id}
+                className="grid grid-cols-[72px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_90px_110px_80px] gap-3 items-center p-3 bg-white border border-[#e8e8e8] hover:border-outline-variant transition-colors rounded-[20px]"
+              >
+                <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#f3f3f3]">
+                  <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
+                </div>
+                <span className="text-[15px] font-medium text-on-background truncate">{prod.name}</span>
+                <span className="text-sm text-outline truncate">
+                  {prod.category?.name ?? <em className="opacity-50">Uncategorized</em>}
+                </span>
+                <span className="text-sm text-outline truncate">{prod.skinType?.name ?? "All"}</span>
+                <span className="text-sm font-medium text-on-background">
+                  {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
+                </span>
+                <div>{stockBadge(prod.stock)}</div>
+                <ProductActions
+                  prod={prod}
+                  deletingId={deletingId}
+                  onEdit={() => openEdit(prod)}
+                  onDelete={() => setDeleteTarget(prod)}
+                />
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">
-                  Description <span className="font-normal normal-case">(optional)</span>
-                </label>
-                <textarea placeholder="Brief description" value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2}
-                  className="resize-y border border-[#d0c5af] rounded-xl p-2.5 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Category</label>
-                <select value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] text-[#1a1c1c] outline-none font-inherit focus:border-[#735c00] transition-colors duration-250">
-                  <option value="">— Select category —</option>
-                  {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Skin Type</label>
-                <select value={form.skinTypeId} onChange={(e) => setForm((f) => ({ ...f, skinTypeId: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] text-[#1a1c1c] outline-none font-inherit focus:border-[#735c00] transition-colors duration-250">
-                  <option value="">— Select skin type —</option>
-                  {skinTypes.map((skin) => (<option key={skin.id} value={skin.id}>{skin.name}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Stock Level</label>
-                <input type="number" min="0" placeholder="0" value={form.stock}
-                  onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Price (ETB)</label>
-                <input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Image</label>
-                <input type="file" accept="image/*"
-                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageSelect(file); }}
-                  required className="text-sm mt-1" />
-                {imagePreview && (
-                  <div className="mt-3 relative w-24 h-24 rounded-lg overflow-hidden border border-[#d0c5af]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-              {formError && <p className="text-[13px] text-[#ba1a1a]" role="alert">{formError}</p>}
-              <div className="flex gap-3 justify-end mt-2">
-                <button type="button" onClick={() => { setModalOpen(false); if (imagePreview) URL.revokeObjectURL(imagePreview); }}
-                  className="bg-transparent border border-[#d0c5af] hover:border-[#735c00] py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl transition-colors duration-200">
-                  Cancel
-                </button>
-                <button type="submit" disabled={busy}
-                  className={`border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl transition-colors duration-200 font-inherit text-white ${
-                    busy ? "bg-[#4a3d00] cursor-not-allowed opacity-70" : "bg-[#1a1a1a] hover:bg-[#735c00] cursor-pointer"
-                  }`}>
-                  {busy ? "Saving…" : "Save"}
-                </button>
-              </div>
-            </form>
+            ))}
           </div>
-        </div>
-      )}
 
-      {/* ── Edit Modal ── */}
-      {editTarget && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center p-5">
-          <div onClick={() => { setEditTarget(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); }} className="absolute inset-0 bg-black/35" />
-          <div className="relative bg-white p-10 w-full max-w-[460px] shadow-[0_16px_40px_rgba(0,0,0,0.12)] max-h-[90vh] overflow-y-auto rounded-[20px]">
-            <button onClick={() => { setEditTarget(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); }}
-              className="absolute top-4 right-4 bg-transparent border-none cursor-pointer text-[#7f7663] p-1">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <h3 className="text-xl font-medium text-[#1a1c1c] mb-7">Edit Product</h3>
-            <p className="text-sm text-[#7f7663] mb-5">Editing <strong className="text-[#1a1c1c]">{editTarget.name}</strong></p>
-            <form onSubmit={handleEdit} className="flex flex-col gap-5">
-              {/* Stock */}
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Stock Level</label>
-                <input type="number" min="0" value={editForm.stock}
-                  onChange={(e) => setEditForm((f) => ({ ...f, stock: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
-              </div>
-              {/* Price */}
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Price (ETB)</label>
-                <input type="number" min="0" step="0.01" placeholder="0.00" value={editForm.price}
-                  onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] leading-[22px] text-[#1a1c1c] outline-none font-inherit transition-colors duration-250 focus:border-[#735c00]" />
-              </div>
-              {/* Category */}
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Category</label>
-                <select value={editForm.categoryId} onChange={(e) => setEditForm((f) => ({ ...f, categoryId: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] text-[#1a1c1c] outline-none font-inherit focus:border-[#735c00] transition-colors duration-250">
-                  <option value="">— Select category —</option>
-                  {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-                </select>
-              </div>
-              {/* Skin Type */}
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">Skin Type</label>
-                <select value={editForm.skinTypeId} onChange={(e) => setEditForm((f) => ({ ...f, skinTypeId: e.target.value }))}
-                  className="border border-[#d0c5af] rounded-xl py-2.5 px-3 bg-transparent w-full text-[15px] text-[#1a1c1c] outline-none font-inherit focus:border-[#735c00] transition-colors duration-250">
-                  <option value="">— Select skin type —</option>
-                  {skinTypes.map((skin) => (<option key={skin.id} value={skin.id}>{skin.name}</option>))}
-                </select>
-              </div>
-              {/* Image */}
-              <div>
-                <label className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-[#7f7663] mb-1">
-                  Replace Image <span className="font-normal normal-case">(optional)</span>
-                </label>
-                <div className="flex items-center gap-4 mt-1">
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#d0c5af] bg-gray-100 shrink-0">
-                    {editImagePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={editImagePreview} alt="New preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <Image src={editTarget.image} alt={editTarget.name} fill className="object-cover" sizes="64px" />
-                    )}
+          {/* Mobile cards */}
+          <div className="flex lg:hidden flex-col gap-3">
+            {filtered.map((prod) => (
+              <div
+                key={prod.id}
+                className="flex gap-3 p-3 bg-white border border-[#e8e8e8] rounded-[20px]"
+              >
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#f3f3f3] shrink-0">
+                  <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="64px" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-[15px] font-medium text-on-background">{prod.name}</span>
+                    <ProductActions
+                      prod={prod}
+                      deletingId={deletingId}
+                      onEdit={() => openEdit(prod)}
+                      onDelete={() => setDeleteTarget(prod)}
+                    />
                   </div>
-                  <input type="file" accept="image/*"
-                    onChange={(e) => { const file = e.target.files?.[0]; if (file) handleEditImageSelect(file); }}
-                    className="text-sm" />
+                  <p className="text-[13px] text-outline mt-0.5 truncate">
+                    {prod.category?.name ?? "Uncategorized"} · {prod.skinType?.name ?? "All"}
+                  </p>
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <span className="text-sm font-medium text-on-background">
+                      {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
+                    </span>
+                    {stockBadge(prod.stock)}
+                  </div>
                 </div>
               </div>
-              {editError && <p className="text-[13px] text-[#ba1a1a]" role="alert">{editError}</p>}
-              <div className="flex gap-3 justify-end mt-2">
-                <button type="button" onClick={() => { setEditTarget(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); }}
-                  className="bg-transparent border border-[#d0c5af] hover:border-[#735c00] py-3 px-6 text-xs font-semibold tracking-[0.1em] uppercase cursor-pointer text-[#4d4635] font-inherit rounded-xl transition-colors duration-200">
-                  Cancel
-                </button>
-                <button type="submit" disabled={editBusy}
-                  className={`border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl transition-colors duration-200 font-inherit text-white ${
-                    editBusy ? "bg-[#4a3d00] cursor-not-allowed opacity-70" : "bg-[#1a1a1a] hover:bg-[#735c00] cursor-pointer"
-                  }`}>
-                  {editBusy ? "Updating…" : "Update"}
-                </button>
-              </div>
-            </form>
+            ))}
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── Delete Confirmation ── */}
+      <Modal open={modalOpen} onClose={closeCreate} title="Create Product">
+        <form onSubmit={handleCreate}>
+          <ProductFormFields
+            idPrefix="create"
+            form={form}
+            setForm={setForm}
+            categories={categories}
+            skinTypes={skinTypes}
+            imagePreview={imagePreview}
+            onImageSelect={handleImageSelect}
+            requireImage
+          />
+          {formError && (
+            <p className="mt-4 text-[13px] text-error" role="alert">{formError}</p>
+          )}
+          {modalActions(closeCreate, busy, "Save")}
+        </form>
+      </Modal>
+
+      <Modal open={!!editTarget} onClose={closeEdit} title="Edit Product">
+        {editTarget && (
+          <form onSubmit={handleEdit}>
+            <ProductFormFields
+              idPrefix="edit"
+              form={editForm}
+              setForm={setEditForm}
+              categories={categories}
+              skinTypes={skinTypes}
+              imagePreview={editImagePreview}
+              currentImage={editTarget.image}
+              currentName={editTarget.name}
+              onImageSelect={handleEditImageSelect}
+            />
+            {editError && (
+              <p className="mt-4 text-[13px] text-error" role="alert">{editError}</p>
+            )}
+            {modalActions(closeEdit, editBusy, "Update")}
+          </form>
+        )}
+      </Modal>
+
       <ConfirmModal
         open={!!deleteTarget}
         title="Delete Product"

@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface ConfirmModalProps {
   open: boolean;
@@ -25,20 +28,45 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+    if (!open) return;
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    cancelRef.current?.focus();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !busy) {
+        e.preventDefault();
+        onCancel();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const nodes = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (nodes.length === 0) return;
+      const firstEl = nodes[0];
+      const lastEl = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      previousFocus.current?.focus?.();
+    };
+  }, [open, onCancel, busy]);
 
   if (!open) return null;
 
@@ -47,18 +75,19 @@ export default function ConfirmModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-5"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
     >
-      {/* Backdrop */}
       <div
-        onClick={onCancel}
+        onClick={() => { if (!busy) onCancel(); }}
         className="absolute inset-0 bg-black/40"
         aria-hidden="true"
       />
 
-      {/* Card */}
-      <div className="relative bg-white py-9 px-10 w-full max-w-[400px] rounded-[20px] shadow-[0_20px_48px_rgba(0,0,0,0.15)]">
-        {/* Icon container */}
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="relative bg-white py-9 px-10 w-full max-w-[400px] rounded-[20px] outline-none"
+      >
         <div
           className={`w-11 h-11 rounded-lg flex items-center justify-center mb-5 ${
             variant === "danger" ? "bg-[#ffdad6]" : "bg-[#fff8e7]"
@@ -85,38 +114,30 @@ export default function ConfirmModal({
           )}
         </div>
 
-        <h3
-          id="confirm-modal-title"
-          className="text-lg font-medium text-[#1a1c1c] mb-2.5"
-        >
+        <h3 id="confirm-modal-title" className="text-lg font-medium text-[#1a1c1c] mb-2.5">
           {title}
         </h3>
-
-        <p className="text-sm text-[#5f5e5e] leading-[22px] mb-8">
-          {message}
-        </p>
+        <p className="text-sm text-[#5f5e5e] leading-[22px] mb-8">{message}</p>
 
         <div className="flex gap-3 justify-end">
-          {/* Cancel */}
           <button
+            ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className={`bg-transparent border border-[#d0c5af] py-2.5 px-5.5 text-xs font-semibold tracking-[0.1em] uppercase rounded-xl transition-colors duration-200 font-inherit text-[#4d4635] ${
+            className={`bg-transparent border border-[#d0c5af] py-2.5 px-5 text-xs font-semibold tracking-[0.1em] uppercase rounded-xl transition-colors duration-200 font-inherit text-[#4d4635] ${
               busy ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-[#735c00]"
             }`}
           >
             {cancelLabel}
           </button>
-
-          {/* Confirm */}
           <button
             type="button"
             onClick={onConfirm}
             disabled={busy}
             className={`flex items-center gap-2 border-none py-2.5 px-6 text-xs font-semibold tracking-[0.1em] uppercase rounded-xl transition-colors duration-200 font-inherit text-white ${
-              busy 
-                ? "bg-[#999] cursor-not-allowed opacity-70" 
+              busy
+                ? "bg-[#999] cursor-not-allowed opacity-70"
                 : variant === "danger"
                   ? "bg-[#ba1a1a] hover:bg-[#93000a] cursor-pointer"
                   : "bg-[#735c00] hover:bg-[#574500] cursor-pointer"
@@ -135,4 +156,3 @@ export default function ConfirmModal({
     </div>
   );
 }
-

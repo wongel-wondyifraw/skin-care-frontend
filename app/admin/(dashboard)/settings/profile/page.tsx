@@ -1,50 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { apiFetch } from "../../../../../lib/api";
+import { useAdmin } from "../../../../../lib/admin-context";
 
-const inputStyle: React.CSSProperties = {
-  border: "none",
-  borderBottom: "1px solid #1a1a1a",
-  borderRadius: 0,
-  padding: "10px 0",
-  background: "transparent",
-  width: "100%",
-  fontSize: "15px",
-  lineHeight: "22px",
-  color: "#1a1c1c",
-  outline: "none",
-  fontFamily: "inherit",
-  transition: "border-color 0.25s ease",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "11px",
-  fontWeight: 600,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: "#7f7663",
-  marginBottom: "4px",
-};
-
-const btnStyle: React.CSSProperties = {
-  backgroundColor: "#1a1a1a",
-  color: "#fff",
-  border: "none",
-  padding: "12px 28px",
-  fontSize: "12px",
-  fontWeight: 600,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  cursor: "pointer",
-  transition: "background-color 0.2s ease",
-  fontFamily: "inherit",
-  borderRadius: "10px",
-};
+const fieldClass =
+  "border border-outline-variant rounded-xl px-3 py-2.5 bg-transparent w-full text-[15px] leading-[22px] text-on-background outline-none font-inherit transition-colors focus:border-primary";
+const labelClass =
+  "block text-[11px] font-semibold tracking-[0.12em] uppercase text-outline mb-1";
+const primaryBtn =
+  "bg-[#1a1a1a] text-white border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl font-inherit hover:bg-primary transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
+const sectionTitle =
+  "text-[13px] font-semibold tracking-[0.1em] uppercase text-[#4d4635] mb-5 pb-2 border-b border-outline-variant";
 
 export default function ProfilePage() {
-  const [name, setName] = useState("");
+  const { setAdminName } = useAdmin();
+  const [name, setName] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = localStorage.getItem("adminUser");
+      if (raw) return (JSON.parse(raw) as { name: string }).name ?? "";
+    } catch {
+      /* ignore */
+    }
+    return "";
+  });
   const [nameStatus, setNameStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [nameBusy, setNameBusy] = useState(false);
 
@@ -53,14 +33,6 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwStatus, setPwStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
-
-  // Pre-fill name from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("adminUser");
-      if (raw) setName((JSON.parse(raw) as { name: string }).name);
-    } catch { /* ignore */ }
-  }, []);
 
   async function handleNameSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,17 +44,22 @@ export default function ProfilePage() {
         method: "PATCH",
         body: JSON.stringify({ name: name.trim() }),
       });
-      // update localStorage
       try {
         const raw = localStorage.getItem("adminUser");
         if (raw) {
           const u = JSON.parse(raw);
           localStorage.setItem("adminUser", JSON.stringify({ ...u, name: res.name }));
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
+      setAdminName(res.name);
       setNameStatus({ ok: true, msg: "Name updated successfully." });
     } catch (err: unknown) {
-      setNameStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to update name." });
+      setNameStatus({
+        ok: false,
+        msg: err instanceof Error ? err.message : "Failed to update name.",
+      });
     } finally {
       setNameBusy(false);
     }
@@ -110,99 +87,85 @@ export default function ProfilePage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: unknown) {
-      setPwStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to change password." });
+      setPwStatus({
+        ok: false,
+        msg: err instanceof Error ? err.message : "Failed to change password.",
+      });
     } finally {
       setPwBusy(false);
     }
   }
 
   return (
-    <div style={{ maxWidth: "480px" }}>
-      <h2 style={{ fontSize: "22px", fontWeight: 500, color: "#1a1c1c", marginBottom: "4px" }}>
-        Profile
-      </h2>
-      <p style={{ fontSize: "14px", color: "#7f7663", marginBottom: "36px" }}>
+    <div className="max-w-[480px]">
+      <h2 className="text-[22px] font-medium text-on-background mb-1">Profile</h2>
+      <p className="text-sm text-outline mb-9">
         Update your display name or change your password.
       </p>
 
-      {/* ── Name section ── */}
-      <section style={{ marginBottom: "48px" }}>
-        <h3 style={{ fontSize: "13px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#4d4635", marginBottom: "20px", paddingBottom: "8px", borderBottom: "1px solid #d0c5af" }}>
-          Display Name
-        </h3>
-        <form onSubmit={handleNameSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <section className="mb-12">
+        <h3 className={sectionTitle}>Display Name</h3>
+        <form onSubmit={handleNameSubmit} className="flex flex-col gap-5">
           <div>
-            <label style={labelStyle} htmlFor="profile-name">Name</label>
+            <label className={labelClass} htmlFor="profile-name">Name</label>
             <input
               id="profile-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderBottomColor = "#735c00")}
-              onBlur={(e) => (e.target.style.borderBottomColor = "#1a1a1a")}
+              className={fieldClass}
             />
           </div>
           {nameStatus && (
-            <p style={{ fontSize: "13px", color: nameStatus.ok ? "#2e7d32" : "#ba1a1a" }} role="alert">
+            <p
+              className={`text-[13px] ${nameStatus.ok ? "text-primary" : "text-error"}`}
+              role="alert"
+            >
               {nameStatus.msg}
             </p>
           )}
           <div>
-            <button
-              type="submit"
-              disabled={nameBusy}
-              style={{ ...btnStyle, opacity: nameBusy ? 0.6 : 1, cursor: nameBusy ? "not-allowed" : "pointer" }}
-              onMouseEnter={(e) => { if (!nameBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#735c00"; }}
-              onMouseLeave={(e) => { if (!nameBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1a1a1a"; }}
-            >
+            <button type="submit" disabled={nameBusy} className={primaryBtn}>
               {nameBusy ? "Saving…" : "Save Name"}
             </button>
           </div>
         </form>
       </section>
 
-      {/* ── Password section ── */}
       <section>
-        <h3 style={{ fontSize: "13px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#4d4635", marginBottom: "20px", paddingBottom: "8px", borderBottom: "1px solid #d0c5af" }}>
-          Change Password
-        </h3>
-        <form onSubmit={handlePasswordSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {(["Current Password", "New Password", "Confirm New Password"] as const).map((label, i) => {
-            const id = ["current-pw", "new-pw", "confirm-pw"][i];
-            const val = [currentPassword, newPassword, confirmPassword][i];
-            const setter = [setCurrentPassword, setNewPassword, setConfirmPassword][i];
-            return (
-              <div key={id}>
-                <label style={labelStyle} htmlFor={id}>{label}</label>
-                <input
-                  id={id}
-                  type="password"
-                  value={val}
-                  onChange={(e) => setter(e.target.value)}
-                  required
-                  autoComplete={i === 0 ? "current-password" : "new-password"}
-                  style={inputStyle}
-                  onFocus={(e) => (e.target.style.borderBottomColor = "#735c00")}
-                  onBlur={(e) => (e.target.style.borderBottomColor = "#1a1a1a")}
-                />
-              </div>
-            );
-          })}
+        <h3 className={sectionTitle}>Change Password</h3>
+        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-5">
+          {(
+            [
+              ["Current Password", "current-pw", currentPassword, setCurrentPassword, "current-password"],
+              ["New Password", "new-pw", newPassword, setNewPassword, "new-password"],
+              ["Confirm New Password", "confirm-pw", confirmPassword, setConfirmPassword, "new-password"],
+            ] as const
+          ).map(([label, id, val, setter, autoComplete]) => (
+            <div key={id}>
+              <label className={labelClass} htmlFor={id}>{label}</label>
+              <input
+                id={id}
+                type="password"
+                value={val}
+                onChange={(e) => setter(e.target.value)}
+                required
+                autoComplete={autoComplete}
+                className={fieldClass}
+              />
+            </div>
+          ))}
           {pwStatus && (
-            <p style={{ fontSize: "13px", color: pwStatus.ok ? "#2e7d32" : "#ba1a1a" }} role="alert">
+            <p
+              className={`text-[13px] ${pwStatus.ok ? "text-primary" : "text-error"}`}
+              role="alert"
+            >
               {pwStatus.msg}
             </p>
           )}
           <div>
-            <button
-              type="submit"
-              disabled={pwBusy}
-              style={{ ...btnStyle, opacity: pwBusy ? 0.6 : 1, cursor: pwBusy ? "not-allowed" : "pointer" }}
-              onMouseEnter={(e) => { if (!pwBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#735c00"; }}
-              onMouseLeave={(e) => { if (!pwBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1a1a1a"; }}
-            >
+            <button type="submit" disabled={pwBusy} className={primaryBtn}>
               {pwBusy ? "Updating…" : "Change Password"}
             </button>
           </div>

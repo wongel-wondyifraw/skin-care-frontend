@@ -3,33 +3,16 @@
 import { useState } from "react";
 import { apiFetch } from "../../../../../lib/api";
 
-const inputStyle: React.CSSProperties = {
-  border: "none",
-  borderBottom: "1px solid #1a1a1a",
-  borderRadius: 0,
-  padding: "10px 0",
-  background: "transparent",
-  width: "100%",
-  fontSize: "15px",
-  lineHeight: "22px",
-  color: "#1a1c1c",
-  outline: "none",
-  fontFamily: "inherit",
-  transition: "border-color 0.25s ease",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "11px",
-  fontWeight: 600,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: "#7f7663",
-  marginBottom: "4px",
-};
+const fieldClass =
+  "border border-outline-variant rounded-xl px-3 py-2.5 bg-transparent w-full text-[15px] leading-[22px] text-on-background outline-none font-inherit transition-colors focus:border-primary";
+const labelClass =
+  "block text-[11px] font-semibold tracking-[0.12em] uppercase text-outline mb-1";
+const primaryBtn =
+  "bg-[#1a1a1a] text-white border-none py-3 px-7 text-xs font-semibold tracking-[0.12em] uppercase rounded-xl font-inherit hover:bg-primary transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
 
 export default function AddAdminPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -50,77 +33,103 @@ export default function AddAdminPage() {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setStatus({ ok: true, msg: `Admin "${res.name}" (${res.email}) created successfully.` });
+      setStatus({
+        ok: true,
+        msg: `Admin "${res.name}" (${res.email}) created successfully.`,
+      });
       setForm({ name: "", email: "", password: "" });
     } catch (err: unknown) {
-      setStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to create admin." });
+      setStatus({
+        ok: false,
+        msg: err instanceof Error ? err.message : "Failed to create admin.",
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  const fields: { label: string; name: keyof typeof form; type: string; autoComplete: string }[] = [
-    { label: "Full Name", name: "name", type: "text", autoComplete: "off" },
-    { label: "Email Address", name: "email", type: "email", autoComplete: "off" },
-    { label: "Password", name: "password", type: "password", autoComplete: "new-password" },
-  ];
-
   return (
-    <div style={{ maxWidth: "480px" }}>
-      <h2 style={{ fontSize: "22px", fontWeight: 500, color: "#1a1c1c", marginBottom: "4px" }}>
-        Add Admin
-      </h2>
-      <p style={{ fontSize: "14px", color: "#7f7663", marginBottom: "36px" }}>
-        Create a new administrator account.
-      </p>
+    <div className="max-w-[480px]">
+      <h2 className="text-[22px] font-medium text-on-background mb-1">Add Admin</h2>
+      <p className="text-sm text-outline mb-9">Create a new administrator account.</p>
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        {fields.map(({ label, name, type, autoComplete }) => (
-          <div key={name}>
-            <label style={labelStyle} htmlFor={`add-admin-${name}`}>{label}</label>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <div>
+          <label className={labelClass} htmlFor="add-admin-name">Full Name</label>
+          <input
+            id="add-admin-name"
+            name="name"
+            type="text"
+            value={form.name}
+            onChange={handleChange}
+            required
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="add-admin-email">Email Address</label>
+          <input
+            id="add-admin-email"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            required
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="add-admin-password">Password</label>
+          <div className="relative">
             <input
-              id={`add-admin-${name}`}
-              name={name}
-              type={type}
-              value={form[name]}
+              id="add-admin-password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              value={form.password}
               onChange={handleChange}
               required
-              autoComplete={autoComplete}
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderBottomColor = "#735c00")}
-              onBlur={(e) => (e.target.style.borderBottomColor = "#1a1a1a")}
+              autoComplete="new-password"
+              className={`${fieldClass} pr-10`}
             />
+            <button
+              type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5f5e5e] hover:text-primary bg-transparent border-none cursor-pointer p-0"
+            >
+              {showPassword ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                  className="w-5 h-5" aria-hidden="true">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                  className="w-5 h-5" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
           </div>
-        ))}
+        </div>
 
         {status && (
-          <p style={{ fontSize: "13px", color: status.ok ? "#2e7d32" : "#ba1a1a" }} role="alert">
+          <p
+            className={`text-[13px] ${status.ok ? "text-primary" : "text-error"}`}
+            role="alert"
+          >
             {status.msg}
           </p>
         )}
 
         <div>
-          <button
-            type="submit"
-            disabled={busy}
-            style={{
-              backgroundColor: "#1a1a1a",
-              color: "#fff",
-              border: "none",
-              padding: "12px 28px",
-              fontSize: "12px",
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              cursor: busy ? "not-allowed" : "pointer",
-              opacity: busy ? 0.6 : 1,
-              transition: "background-color 0.2s ease",
-              fontFamily: "inherit",
-              borderRadius: "10px",
-            }}
-            onMouseEnter={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#735c00"; }}
-            onMouseLeave={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1a1a1a"; }}
-          >
+          <button type="submit" disabled={busy} className={primaryBtn}>
             {busy ? "Creating…" : "Create Admin"}
           </button>
         </div>

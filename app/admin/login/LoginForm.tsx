@@ -103,15 +103,15 @@ export default function LoginForm() {
                   autoComplete="email"
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
-                  className={`border border-[#d0c5af] rounded-xl px-4 py-3 bg-transparent w-full text-base text-[#1a1c1c] outline-none transition-colors duration-300 focus:border-[#735c00] ${
-                    focusedField === "email" ? "border-[#735c00]" : "border-[#1a1a1a]"
+                  className={`border rounded-xl px-4 py-3 bg-transparent w-full text-base text-[#1a1c1c] outline-none transition-colors duration-300 focus:border-[#735c00] ${
+                    focusedField === "email" ? "border-[#735c00]" : "border-[#d0c5af]"
                   }`}
                 />
               </div>
 
               {/* Password */}
               <div className="flex flex-col gap-1">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-2">
                   <label
                     htmlFor="password"
                     className={`uppercase block transition-colors duration-300 text-[10px] lg:text-[11px] tracking-[0.12em] font-semibold ${
@@ -120,12 +120,9 @@ export default function LoginForm() {
                   >
                     Password
                   </label>
-                  <a
-                    href="#"
-                    className="transition-opacity hover:opacity-70 text-[10px] lg:text-[11px] tracking-[0.12em] font-semibold text-[#735c00] uppercase no-underline"
-                  >
-                    Forgot?
-                  </a>
+                  <span className="text-[10px] lg:text-[11px] tracking-[0.04em] text-[#7f7663] text-right">
+                    Ask another admin to reset
+                  </span>
                 </div>
                 <div className="relative">
                   <input
@@ -137,8 +134,8 @@ export default function LoginForm() {
                     autoComplete="current-password"
                     onFocus={() => setFocusedField("password")}
                     onBlur={() => setFocusedField(null)}
-                    className={`border border-[#d0c5af] rounded-xl px-4 py-3 pr-10 bg-transparent w-full text-base text-[#1a1c1c] outline-none transition-colors duration-300 focus:border-[#735c00] ${
-                      focusedField === "password" ? "border-[#735c00]" : "border-[#1a1a1a]"
+                    className={`border rounded-xl px-4 py-3 pr-10 bg-transparent w-full text-base text-[#1a1c1c] outline-none transition-colors duration-300 focus:border-[#735c00] ${
+                      focusedField === "password" ? "border-[#735c00]" : "border-[#d0c5af]"
                     }`}
                   />
                   <button
