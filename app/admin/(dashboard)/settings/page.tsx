@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Pencil, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import { Button } from "@/components/ui/button";
@@ -10,76 +10,232 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
 /* ─── Profile Section ──────────────────────────────────────── */
 
 function ProfileSection() {
   const { adminName, setAdminName } = useAdmin();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState(adminName);
-  const [nameStatus, setNameStatus] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [nameBusy, setNameBusy] = useState(false);
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwStatus, setPwStatus] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [pwBusy, setPwBusy] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function handleNameSubmit(e: React.FormEvent) {
-    e.preventDefault(); if (!name.trim()) return;
-    setNameBusy(true); setNameStatus(null);
-    try {
-      const res = await apiFetch<{ name: string }>("/admin-users/profile", { method: "PATCH", body: JSON.stringify({ name: name.trim() }) });
-      setAdminName(res.name); setNameStatus({ ok: true, msg: "Name updated." });
-    } catch (err: unknown) { setNameStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to update." }); }
-    finally { setNameBusy(false); }
+  function openModal() {
+    setName(adminName);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setStatus(null);
+    setOpen(true);
   }
 
-  async function handlePasswordSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (newPassword !== confirmPassword) { setPwStatus({ ok: false, msg: "Passwords do not match." }); return; }
-    if (newPassword.length < 6) { setPwStatus({ ok: false, msg: "Min 6 characters." }); return; }
-    setPwBusy(true); setPwStatus(null);
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setStatus({ ok: false, msg: "Name is required." });
+      return;
+    }
+
+    const wantsPasswordChange =
+      currentPassword.length > 0 || newPassword.length > 0 || confirmPassword.length > 0;
+
+    if (wantsPasswordChange) {
+      if (!currentPassword) {
+        setStatus({ ok: false, msg: "Enter your current password." });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setStatus({ ok: false, msg: "Passwords do not match." });
+        return;
+      }
+      if (newPassword.length < 6) {
+        setStatus({ ok: false, msg: "New password must be at least 6 characters." });
+        return;
+      }
+    }
+
+    setBusy(true);
+    setStatus(null);
     try {
-      await apiFetch("/admin-users/profile", { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) });
-      setPwStatus({ ok: true, msg: "Password changed." }); setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
-    } catch (err: unknown) { setPwStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to change password." }); }
-    finally { setPwBusy(false); }
+      const res = await apiFetch<{ name: string }>("/admin-users/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: trimmedName,
+          ...(wantsPasswordChange ? { currentPassword, newPassword } : {}),
+        }),
+      });
+      setAdminName(res.name);
+      setStatus({
+        ok: true,
+        msg: wantsPasswordChange ? "Profile and password updated." : "Profile updated.",
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setOpen(false);
+    } catch (err: unknown) {
+      setStatus({ ok: false, msg: err instanceof Error ? err.message : "Failed to update profile." });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="max-w-md space-y-5">
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-sm">Display Name</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Profile</CardTitle>
+        </CardHeader>
         <CardContent>
-          <form onSubmit={handleNameSubmit} className="flex flex-col gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="profile-name">Name</Label>
-              <Input id="profile-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Display Name</p>
+              <p className="text-sm font-medium text-foreground">{adminName || "Administrator"}</p>
             </div>
-            {nameStatus && <p className={`text-sm ${nameStatus.ok ? "text-primary" : "text-destructive"}`} role="alert">{nameStatus.msg}</p>}
-            <Button type="submit" disabled={nameBusy} size="sm" className="self-start">{nameBusy ? "Saving…" : "Save Name"}</Button>
-          </form>
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <KeyRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Name and password</p>
+                <p className="text-xs text-muted-foreground">
+                  Update your display name and password from one shared edit flow.
+                </p>
+              </div>
+            </div>
+            {status && (
+              <p
+                className={`text-sm ${status.ok ? "text-primary" : "text-destructive"}`}
+                role="alert"
+              >
+                {status.msg}
+              </p>
+            )}
+            <Button type="button" size="sm" className="self-start" onClick={openModal}>
+              <Pencil className="size-4" /> Edit Profile
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-sm">Change Password</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
-            {([["Current Password", "current-pw", currentPassword, setCurrentPassword, "current-password"], ["New Password", "new-pw", newPassword, setNewPassword, "new-password"], ["Confirm", "confirm-pw", confirmPassword, setConfirmPassword, "new-password"]] as const).map(([label, id, val, setter, ac]) => (
-              <div key={id} className="space-y-1.5">
-                <Label htmlFor={id}>{label}</Label>
-                <Input id={id} type="password" value={val} onChange={(e) => setter(e.target.value)} required autoComplete={ac} />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-name">Name</Label>
+              <Input
+                id="profile-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                data-autofocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="current-pw">Current Password</Label>
+              <div className="relative">
+                <Input
+                  id="current-pw"
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                >
+                  {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
               </div>
-            ))}
-            {pwStatus && <p className={`text-sm ${pwStatus.ok ? "text-primary" : "text-destructive"}`} role="alert">{pwStatus.msg}</p>}
-            <Button type="submit" disabled={pwBusy} size="sm" className="self-start">{pwBusy ? "Updating…" : "Change Password"}</Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-pw">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="new-pw"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                >
+                  {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-pw">Confirm Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirm-pw"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Leave the password fields empty if you only want to change your name.
+            </p>
+            {status && open && (
+              <p
+                className={`text-sm ${status.ok ? "text-primary" : "text-destructive"}`}
+                role="alert"
+              >
+                {status.msg}
+              </p>
+            )}
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? "Saving…" : "Save Changes"}
+              </Button>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -183,7 +339,7 @@ export default function SettingsPage() {
         </Tabs>
       </div>
 
-      {/* Mobile: Profile inline, Add Admin via dialog */}
+      {/* Mobile: same profile edit flow as desktop */}
       <div className="lg:hidden">
         <ProfileSection />
       </div>

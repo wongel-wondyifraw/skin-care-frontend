@@ -22,14 +22,15 @@ export default function MobileNav() {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-col items-center justify-center flex-1 gap-0.5 no-underline transition-colors",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 no-underline transition-colors",
               active ? "text-primary" : "text-muted-foreground",
             )}
           >
             <Icon className="size-4" />
             <span
+              title={label}
               className={cn(
-                "text-[10px] tracking-wide",
+                "max-w-full truncate px-1 text-[10px] tracking-wide",
                 active ? "font-semibold" : "font-normal",
               )}
             >

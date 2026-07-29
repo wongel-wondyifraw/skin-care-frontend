@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch, API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import Image from "next/image";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,19 @@ interface Product {
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 type ProductForm = { name: string; description: string; categoryId: string; skinTypeId: string; stock: string; price: string };
+type PaginatedResponse<T> = { items: T[]; total: number; page: number; pageSize: number };
 const emptyForm = (): ProductForm => ({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
+
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [value, delayMs]);
+
+  return debounced;
+}
 
 async function uploadImage(file: File): Promise<{ url: string; assetId: string }> {
   const formData = new FormData();
@@ -71,10 +83,11 @@ function StockBadge({ stock }: { stock: number }) {
 }
 
 function ProductFormFields({
-  idPrefix, form, setForm, categories, skinTypes, imagePreview, currentImage, currentName, onImageSelect, requireImage,
+  idPrefix, form, setForm, categoryOptions, skinTypeOptions, imagePreview, currentImage, currentName, onImageSelect, requireImage,
 }: {
   idPrefix: string; form: ProductForm; setForm: React.Dispatch<React.SetStateAction<ProductForm>>;
-  categories: Category[]; skinTypes: SkinType[];
+  categoryOptions: { value: string; label: string }[];
+  skinTypeOptions: { value: string; label: string }[];
   imagePreview: string | null; currentImage?: string; currentName?: string;
   onImageSelect: (file: File) => void; requireImage?: boolean;
 }) {
@@ -98,7 +111,7 @@ function ProductFormFields({
           <CustomSelect
             value={form.categoryId}
             onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
-            options={[{ value: "", label: "— Select —" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+            options={categoryOptions}
             placeholder="— Select —"
           />
         </div>
@@ -107,7 +120,7 @@ function ProductFormFields({
           <CustomSelect
             value={form.skinTypeId}
             onValueChange={(v) => setForm((f) => ({ ...f, skinTypeId: v }))}
-            options={[{ value: "", label: "— Select —" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))]}
+            options={skinTypeOptions}
             placeholder="— Select —"
           />
         </div>
@@ -149,14 +162,18 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [skinTypes, setSkinTypes] = useState<SkinType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [refsLoading, setRefsLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterSkinType, setFilterSkinType] = useState("");
   const [filterStock, setFilterStock] = useState<StockFilter>("all");
+  const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -175,39 +192,101 @@ export default function ProductsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
+  const pageSize = 12;
+  const search = useDebouncedValue(searchInput, 300);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [p, c, s] = await Promise.all([
-          apiFetch<Product[]>("/products"),
-          apiFetch<Category[]>("/categories"),
-          apiFetch<SkinType[]>("/skin-types"),
+        const [c, s] = await Promise.all([
+          apiFetchCached<Category[]>("/categories", 5 * 60_000),
+          apiFetchCached<SkinType[]>("/skin-types", 5 * 60_000),
         ]);
         if (cancelled) return;
-        setProducts(p); setCategories(c); setSkinTypes(s);
+        setCategories(c);
+        setSkinTypes(s);
       } catch (err: unknown) {
-        if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load data.");
+        if (!cancelled) {
+          setFetchError(err instanceof Error ? err.message : "Failed to load reference data.");
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setRefsLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = products;
-    if (search.trim()) { const q = search.toLowerCase(); list = list.filter((p) => p.name.toLowerCase().includes(q)); }
-    if (filterCategory) list = list.filter((p) => p.categoryId === filterCategory);
-    if (filterSkinType) list = list.filter((p) => p.skinTypeId === filterSkinType);
-    if (filterStock === "out_of_stock") list = list.filter((p) => p.stock === 0);
-    else if (filterStock === "low_stock") list = list.filter((p) => p.stock > 0 && p.stock < 10);
-    else if (filterStock === "in_stock") list = list.filter((p) => p.stock > 0);
-    return list;
-  }, [products, search, filterCategory, filterSkinType, filterStock]);
+  useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setFetchError(null);
+
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    if (search.trim()) params.set("search", search.trim());
+    if (filterCategory) params.set("categoryId", filterCategory);
+    if (filterSkinType) params.set("skinTypeId", filterSkinType);
+    if (filterStock !== "all") params.set("stock", filterStock);
+
+    (async () => {
+      try {
+        const data = await apiFetch<PaginatedResponse<Product>>(`/products?${params.toString()}`);
+        if (cancelled) return;
+        setProducts(data.items);
+        setTotal(data.total);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setFetchError(err instanceof Error ? err.message : "Failed to load products.");
+        }
+      } finally {
+        if (!cancelled) setListLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, pageSize, search, filterCategory, filterSkinType, filterStock, refreshKey]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const categoryOptions = useMemo(
+    () => [{ value: "", label: "All Categories" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+    [categories],
+  );
+  const skinTypeOptions = useMemo(
+    () => [{ value: "", label: "All Skin Types" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))],
+    [skinTypes],
+  );
+  const stockOptions = useMemo(
+    () => [
+      { value: "all", label: "All Stock" },
+      { value: "in_stock", label: "In Stock" },
+      { value: "low_stock", label: "Low (< 10)" },
+      { value: "out_of_stock", label: "Out of Stock" },
+    ],
+    [],
+  );
+  const formCategoryOptions = useMemo(
+    () => [{ value: "", label: "— Select —" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+    [categories],
+  );
+  const formSkinTypeOptions = useMemo(
+    () => [{ value: "", label: "— Select —" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))],
+    [skinTypes],
+  );
 
   const filtersActive = !!search.trim() || !!filterCategory || !!filterSkinType || filterStock !== "all";
-  function clearFilters() { setSearch(""); setFilterCategory(""); setFilterSkinType(""); setFilterStock("all"); }
+  const initialLoading = (refsLoading || listLoading) && products.length === 0 && total === 0;
+  function clearFilters() { setSearchInput(""); setFilterCategory(""); setFilterSkinType(""); setFilterStock("all"); setPage(1); }
 
   function openModal() { setForm(emptyForm()); setImageFile(null); if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setFormError(null); setModalOpen(true); }
   function closeCreate() { setModalOpen(false); if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); }
@@ -219,8 +298,11 @@ export default function ProductsPage() {
     setBusy(true); setFormError(null);
     try {
       const up = await uploadImage(imageFile);
-      const created = await apiFetch<Product>("/products", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined, image: up.url, assetId: up.assetId, categoryId: form.categoryId || undefined, skinTypeId: form.skinTypeId || undefined, stock: parseInt(form.stock, 10) || 0, price: parseFloat(form.price) || 0 }) });
-      setProducts((prev) => [created, ...prev]); closeCreate();
+      await apiFetch<Product>("/products", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined, image: up.url, assetId: up.assetId, categoryId: form.categoryId || undefined, skinTypeId: form.skinTypeId || undefined, stock: parseInt(form.stock, 10) || 0, price: parseFloat(form.price) || 0 }) });
+      invalidateApiCache("/dashboard-summary");
+      closeCreate();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to create product."); } finally { setBusy(false); }
   }
 
@@ -235,14 +317,21 @@ export default function ProductsPage() {
     try {
       let imageUrl = editTarget.image, assetId = editTarget.assetId;
       if (editImageFile) { const up = await uploadImage(editImageFile); imageUrl = up.url; assetId = up.assetId; }
-      const updated = await apiFetch<Product>(`/products/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined, image: imageUrl, assetId, stock: parseInt(editForm.stock, 10) || 0, price: parseFloat(editForm.price) || 0, categoryId: editForm.categoryId || undefined, skinTypeId: editForm.skinTypeId || undefined }) });
-      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p))); closeEdit();
+      await apiFetch<Product>(`/products/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined, image: imageUrl, assetId, stock: parseInt(editForm.stock, 10) || 0, price: parseFloat(editForm.price) || 0, categoryId: editForm.categoryId || undefined, skinTypeId: editForm.skinTypeId || undefined }) });
+      closeEdit();
+      setRefreshKey((prev) => prev + 1);
     } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update product."); } finally { setEditBusy(false); }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return; setDeletingId(deleteTarget.id); setActionError(null);
-    try { await apiFetch(`/products/${deleteTarget.id}`, { method: "DELETE" }); setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id)); setDeleteTarget(null); }
+    try {
+      await apiFetch(`/products/${deleteTarget.id}`, { method: "DELETE" });
+      invalidateApiCache("/dashboard-summary");
+      setDeleteTarget(null);
+      if (products.length === 1 && page > 1) setPage((prev) => prev - 1);
+      else setRefreshKey((prev) => prev + 1);
+    }
     catch (err: unknown) { setActionError(err instanceof Error ? err.message : "Failed to delete."); setDeleteTarget(null); }
     finally { setDeletingId(null); }
   }
@@ -259,33 +348,33 @@ export default function ProductsPage() {
         </Button>
       </div>
 
-      {!loading && products.length > 0 && (
+      {!initialLoading && (products.length > 0 || filtersActive) && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input type="search" placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)}
+            <Input type="search" placeholder="Search products…" value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setPage(1); }}
               className="pl-8 h-8 text-xs" />
           </div>
           <CustomSelect
             value={filterCategory}
-            onValueChange={setFilterCategory}
-            options={[{ value: "", label: "All Categories" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+            onValueChange={(value) => { setFilterCategory(value); setPage(1); }}
+            options={categoryOptions}
             placeholder="All Categories"
             size="sm"
             className="w-36"
           />
           <CustomSelect
             value={filterSkinType}
-            onValueChange={setFilterSkinType}
-            options={[{ value: "", label: "All Skin Types" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))]}
+            onValueChange={(value) => { setFilterSkinType(value); setPage(1); }}
+            options={skinTypeOptions}
             placeholder="All Skin Types"
             size="sm"
             className="w-36"
           />
           <CustomSelect
             value={filterStock}
-            onValueChange={(v) => setFilterStock(v as StockFilter)}
-            options={[{ value: "all", label: "All Stock" }, { value: "in_stock", label: "In Stock" }, { value: "low_stock", label: "Low (< 10)" }, { value: "out_of_stock", label: "Out of Stock" }]}
+            onValueChange={(v) => { setFilterStock(v as StockFilter); setPage(1); }}
+            options={stockOptions}
             placeholder="All Stock"
             size="sm"
             className="w-32"
@@ -293,7 +382,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {loading && (
+      {initialLoading && (
         <>
           {/* Desktop skeleton */}
           <div className="hidden lg:block border border-border rounded-lg overflow-hidden" aria-busy="true">
@@ -345,21 +434,21 @@ export default function ProductsPage() {
       {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
       {actionError && <p className="mb-3 text-sm text-destructive" role="alert">{actionError}</p>}
 
-      {!loading && !fetchError && products.length === 0 && (
+      {!initialLoading && !fetchError && total === 0 && !filtersActive && (
         <div className="py-12 text-center border border-dashed border-border rounded-lg text-muted-foreground">
           <p className="mb-2">No products yet.</p>
           <Button variant="link" onClick={openModal}>Create your first product</Button>
         </div>
       )}
 
-      {!loading && products.length > 0 && filtered.length === 0 && (
+      {!initialLoading && !fetchError && total === 0 && filtersActive && (
         <div className="py-12 text-center border border-dashed border-border rounded-lg text-muted-foreground">
           <p className="mb-2">No products match your filters.</p>
           {filtersActive && <Button variant="link" onClick={clearFilters}>Clear filters</Button>}
         </div>
       )}
 
-      {!loading && filtered.length > 0 && (
+      {!initialLoading && !fetchError && products.length > 0 && (
         <>
           <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
             <Table>
@@ -375,7 +464,7 @@ export default function ProductsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((prod) => (
+                {products.map((prod) => (
                   <TableRow key={prod.id}>
                     <TableCell>
                       <div className="relative size-10 rounded-md overflow-hidden bg-muted">
@@ -405,7 +494,7 @@ export default function ProductsPage() {
           </div>
 
           <div className="flex lg:hidden flex-col gap-2">
-            {filtered.map((prod) => (
+            {products.map((prod) => (
               <div key={prod.id} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
                 <div className="relative size-14 rounded-md overflow-hidden bg-muted shrink-0">
                   <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
@@ -427,6 +516,34 @@ export default function ProductsPage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Showing {products.length === 0 ? 0 : (page - 1) * pageSize + 1}
+              {" "}to {Math.min(page * pageSize, total)} of {total} products
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={page === 1 || listLoading}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages || listLoading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </>
       )}
 
@@ -434,7 +551,7 @@ export default function ProductsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Create Product</DialogTitle></DialogHeader>
           <form onSubmit={handleCreate}>
-            <ProductFormFields idPrefix="create" form={form} setForm={setForm} categories={categories} skinTypes={skinTypes}
+            <ProductFormFields idPrefix="create" form={form} setForm={setForm} categoryOptions={formCategoryOptions} skinTypeOptions={formSkinTypeOptions}
               imagePreview={imagePreview} onImageSelect={handleImageSelect} requireImage />
             {formError && <p className="mt-3 text-sm text-destructive" role="alert">{formError}</p>}
             <DialogFooter className="mt-5 gap-2 sm:gap-2">
@@ -450,7 +567,7 @@ export default function ProductsPage() {
           <DialogHeader><DialogTitle>Edit Product</DialogTitle></DialogHeader>
           {editTarget && (
             <form onSubmit={handleEdit}>
-              <ProductFormFields idPrefix="edit" form={editForm} setForm={setEditForm} categories={categories} skinTypes={skinTypes}
+              <ProductFormFields idPrefix="edit" form={editForm} setForm={setEditForm} categoryOptions={formCategoryOptions} skinTypeOptions={formSkinTypeOptions}
                 imagePreview={editImagePreview} currentImage={editTarget.image} currentName={editTarget.name} onImageSelect={handleEditImageSelect} />
               {editError && <p className="mt-3 text-sm text-destructive" role="alert">{editError}</p>}
               <DialogFooter className="mt-5 gap-2 sm:gap-2">

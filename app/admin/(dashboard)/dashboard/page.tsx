@@ -3,13 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ShoppingBag, Layers, Shield, ArrowRight } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetchCached } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
+
+type DashboardSummary = {
+  products: number;
+  categories: number;
+  skinTypes: number;
+  customers: number;
+};
 
 export default function DashboardPage() {
-  const [counts, setCounts] = useState({ products: 0, categories: 0, skinTypes: 0 });
+  const [counts, setCounts] = useState<DashboardSummary>({
+    products: 0,
+    categories: 0,
+    skinTypes: 0,
+    customers: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,17 +28,9 @@ export default function DashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [prodList, catList, skinList] = await Promise.all([
-          apiFetch<unknown[]>("/products"),
-          apiFetch<unknown[]>("/categories"),
-          apiFetch<unknown[]>("/skin-types"),
-        ]);
+        const summary = await apiFetchCached<DashboardSummary>("/dashboard-summary", 30_000);
         if (cancelled) return;
-        setCounts({
-          products: prodList.length,
-          categories: catList.length,
-          skinTypes: skinList.length,
-        });
+        setCounts(summary);
       } catch {
         if (!cancelled) setError("Could not retrieve some live counts.");
       } finally {

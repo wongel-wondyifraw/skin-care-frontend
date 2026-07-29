@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ function CategoriesTab() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try { const data = await apiFetch<Category[]>("/categories"); if (!cancelled) setCategories(data); }
+      try { const data = await apiFetchCached<Category[]>("/categories", 5 * 60_000); if (!cancelled) setCategories(data); }
       catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load."); }
       finally { if (!cancelled) setLoading(false); }
     })();
@@ -60,6 +60,8 @@ function CategoriesTab() {
     e.preventDefault(); if (!form.name.trim()) return; setBusy(true); setFormError(null);
     try {
       const created = await apiFetch<Category>("/categories", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      invalidateApiCache("/categories");
+      invalidateApiCache("/dashboard-summary");
       setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name))); setModalOpen(false);
     } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to create."); } finally { setBusy(false); }
   }
@@ -68,13 +70,14 @@ function CategoriesTab() {
     e.preventDefault(); if (!editTarget || !editForm.name.trim()) return; setEditBusy(true); setEditError(null);
     try {
       const updated = await apiFetch<Category>(`/categories/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined }) });
+      invalidateApiCache("/categories");
       setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)).sort((a, b) => a.name.localeCompare(b.name))); setEditTarget(null);
     } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update."); } finally { setEditBusy(false); }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return; setDeletingId(deleteTarget.id); setActionError(null);
-    try { await apiFetch(`/categories/${deleteTarget.id}`, { method: "DELETE" }); setCategories((prev) => prev.filter((c) => c.id !== deleteTarget.id)); setDeleteTarget(null); }
+    try { await apiFetch(`/categories/${deleteTarget.id}`, { method: "DELETE" }); invalidateApiCache("/categories"); invalidateApiCache("/dashboard-summary"); setCategories((prev) => prev.filter((c) => c.id !== deleteTarget.id)); setDeleteTarget(null); }
     catch (err: unknown) { setActionError(err instanceof Error ? err.message : "Failed to delete."); setDeleteTarget(null); } finally { setDeletingId(null); }
   }
 
@@ -209,7 +212,7 @@ function SkinTypesTab() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try { const data = await apiFetch<SkinType[]>("/skin-types"); if (!cancelled) setSkins(data); }
+      try { const data = await apiFetchCached<SkinType[]>("/skin-types", 5 * 60_000); if (!cancelled) setSkins(data); }
       catch (err: unknown) { if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load."); }
       finally { if (!cancelled) setLoading(false); }
     })();
@@ -223,6 +226,8 @@ function SkinTypesTab() {
     e.preventDefault(); if (!form.name.trim()) return; setAddBusy(true); setFormError(null);
     try {
       const created = await apiFetch<SkinType>("/skin-types", { method: "POST", body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() || undefined }) });
+      invalidateApiCache("/skin-types");
+      invalidateApiCache("/dashboard-summary");
       setSkins((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setForm({ name: "", description: "" }); setModalOpen(false);
     } catch (err: unknown) { setFormError(err instanceof Error ? err.message : "Failed to add."); } finally { setAddBusy(false); }
@@ -232,13 +237,14 @@ function SkinTypesTab() {
     e.preventDefault(); if (!editTarget || !editForm.name.trim()) return; setEditBusy(true); setEditError(null);
     try {
       const updated = await apiFetch<SkinType>(`/skin-types/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined }) });
+      invalidateApiCache("/skin-types");
       setSkins((prev) => prev.map((s) => (s.id === updated.id ? updated : s)).sort((a, b) => a.name.localeCompare(b.name))); setEditTarget(null);
     } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update."); } finally { setEditBusy(false); }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return; setDeletingId(deleteTarget.id); setActionError(null);
-    try { await apiFetch(`/skin-types/${deleteTarget.id}`, { method: "DELETE" }); setSkins((prev) => prev.filter((s) => s.id !== deleteTarget.id)); setDeleteTarget(null); }
+    try { await apiFetch(`/skin-types/${deleteTarget.id}`, { method: "DELETE" }); invalidateApiCache("/skin-types"); invalidateApiCache("/dashboard-summary"); setSkins((prev) => prev.filter((s) => s.id !== deleteTarget.id)); setDeleteTarget(null); }
     catch (err: unknown) { setActionError(err instanceof Error ? err.message : "Failed to delete."); setDeleteTarget(null); } finally { setDeletingId(null); }
   }
 

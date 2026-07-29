@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import MobileNav from "@/components/MobileNav";
 import { AdminProvider, useAdmin } from "@/lib/admin-context";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardLayout({
@@ -22,7 +22,7 @@ export default function DashboardLayout({
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiFetch<{ id: string; name: string; email: string }>("/auth/me");
+        const data = await apiFetchCached<{ id: string; name: string; email: string }>("/auth/me", 60_000);
         if (cancelled) return;
         setAdminName(data.name);
         setReady(true);
@@ -48,6 +48,7 @@ export default function DashboardLayout({
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminName");
     document.cookie = "adminToken=; path=/; max-age=0";
+    invalidateApiCache();
     router.push("/admin/login");
   }, [router]);
 

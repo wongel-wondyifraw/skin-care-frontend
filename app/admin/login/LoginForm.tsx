@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { invalidateApiCache } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,7 @@ export default function LoginForm() {
       localStorage.setItem("adminName", data.admin?.name ?? "");
 
       document.cookie = `adminToken=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`;
+      invalidateApiCache();
 
       router.push("/admin/dashboard");
     } catch (err: unknown) {
