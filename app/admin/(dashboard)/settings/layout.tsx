@@ -35,8 +35,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 aria-current={active ? "page" : undefined}
                 className={`block px-4 py-2.5 rounded-lg no-underline text-sm whitespace-nowrap transition-colors duration-200 ${
                   active
-                    ? "font-semibold text-primary bg-[#fff8e7]"
-                    : "font-normal text-[#4d4635] hover:bg-[#f9f6ef] hover:text-primary"
+                    ? "font-semibold text-primary bg-[#fff8e7] border border-outline-variant"
+                    : "font-normal text-[#4d4635] hover:bg-[#f9f6ef] hover:text-primary border border-transparent"
                 }`}
               >
                 {label}
