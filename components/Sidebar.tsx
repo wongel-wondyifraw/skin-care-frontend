@@ -19,7 +19,7 @@ import ConfirmModal from "./ConfirmModal";
 
 export const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/admin/categories", label: "Categories", icon: Layers },
+  { href: "/admin/categories", label: "Categories & Skin", icon: Layers },
   { href: "/admin/products", label: "Products", icon: ShoppingBag },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/settings", label: "Settings", icon: Settings },

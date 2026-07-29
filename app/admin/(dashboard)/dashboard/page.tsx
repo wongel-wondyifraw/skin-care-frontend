@@ -42,13 +42,13 @@ export default function DashboardPage() {
   const kpis = [
     { title: "Products", value: counts.products, href: "/admin/products", icon: ShoppingBag },
     { title: "Categories", value: counts.categories, href: "/admin/categories", icon: Layers },
-    { title: "Skin Types", value: counts.skinTypes, href: "/admin/settings/skin-types", icon: Shield },
+    { title: "Skin Types", value: counts.skinTypes, href: "/admin/categories", icon: Shield },
   ];
 
   const quickLinks = [
     { href: "/admin/products", label: "Manage products", description: "Add, edit, and stock catalogue items" },
     { href: "/admin/categories", label: "Manage categories", description: "Organize products by category" },
-    { href: "/admin/settings/skin-types", label: "Manage skin types", description: "Define skin-type tags for products" },
+    { href: "/admin/categories", label: "Manage skin types", description: "Define skin-type tags for products" },
   ];
 
   return (

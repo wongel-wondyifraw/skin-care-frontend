@@ -47,7 +47,7 @@ export default function CustomersPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-5">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Customers</h2>
           <p className="text-sm text-muted-foreground">Customer profiles + Telegram registration info.</p>
@@ -59,7 +59,49 @@ export default function CustomersPage() {
       </div>
 
       {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
-      {loading && <div className="space-y-2" aria-busy="true">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>}
+      {loading && (
+        <>
+          <div className="hidden lg:block border border-border rounded-lg overflow-hidden" aria-busy="true">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-14" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex lg:hidden flex-col gap-2" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-3 bg-card border border-border rounded-lg space-y-2">
+                <Skeleton className="h-4 w-3/5" />
+                <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="h-3 w-2/3" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {!loading && !fetchError && filtered.length === 0 && (
         <div className="py-12 text-center border border-dashed border-border rounded-lg text-muted-foreground">

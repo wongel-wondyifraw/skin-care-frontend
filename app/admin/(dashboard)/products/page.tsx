@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select as CustomSelect } from "@/components/ui/select-custom";
 import {
   Dialog,
   DialogContent,
@@ -93,20 +94,22 @@ function ProductFormFields({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-category`}>Category</Label>
-          <select id={`${idPrefix}-category`} value={form.categoryId}
-            onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))} className={selectClass}>
-            <option value="">— Select —</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <Label>Category</Label>
+          <CustomSelect
+            value={form.categoryId}
+            onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+            options={[{ value: "", label: "— Select —" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+            placeholder="— Select —"
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-skin`}>Skin Type</Label>
-          <select id={`${idPrefix}-skin`} value={form.skinTypeId}
-            onChange={(e) => setForm((f) => ({ ...f, skinTypeId: e.target.value }))} className={selectClass}>
-            <option value="">— Select —</option>
-            {skinTypes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <Label>Skin Type</Label>
+          <CustomSelect
+            value={form.skinTypeId}
+            onValueChange={(v) => setForm((f) => ({ ...f, skinTypeId: v }))}
+            options={[{ value: "", label: "— Select —" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))]}
+            placeholder="— Select —"
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -244,11 +247,9 @@ export default function ProductsPage() {
     finally { setDeletingId(null); }
   }
 
-  const selectClass = "flex h-8 rounded-md border border-input bg-transparent px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-5">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Products</h2>
           <p className="text-sm text-muted-foreground">Manage your product catalogue.</p>
@@ -265,27 +266,81 @@ export default function ProductsPage() {
             <Input type="search" placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-8 text-xs" />
           </div>
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={selectClass}>
-            <option value="">All Categories</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <select value={filterSkinType} onChange={(e) => setFilterSkinType(e.target.value)} className={selectClass}>
-            <option value="">All Skin Types</option>
-            {skinTypes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <select value={filterStock} onChange={(e) => setFilterStock(e.target.value as StockFilter)} className={selectClass}>
-            <option value="all">All Stock</option>
-            <option value="in_stock">In Stock</option>
-            <option value="low_stock">Low (&lt; 10)</option>
-            <option value="out_of_stock">Out of Stock</option>
-          </select>
+          <CustomSelect
+            value={filterCategory}
+            onValueChange={setFilterCategory}
+            options={[{ value: "", label: "All Categories" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+            placeholder="All Categories"
+            size="sm"
+            className="w-36"
+          />
+          <CustomSelect
+            value={filterSkinType}
+            onValueChange={setFilterSkinType}
+            options={[{ value: "", label: "All Skin Types" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))]}
+            placeholder="All Skin Types"
+            size="sm"
+            className="w-36"
+          />
+          <CustomSelect
+            value={filterStock}
+            onValueChange={(v) => setFilterStock(v as StockFilter)}
+            options={[{ value: "all", label: "All Stock" }, { value: "in_stock", label: "In Stock" }, { value: "low_stock", label: "Low (< 10)" }, { value: "out_of_stock", label: "Out of Stock" }]}
+            placeholder="All Stock"
+            size="sm"
+            className="w-32"
+          />
         </div>
       )}
 
       {loading && (
-        <div className="space-y-2" aria-busy="true">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </div>
+        <>
+          {/* Desktop skeleton */}
+          <div className="hidden lg:block border border-border rounded-lg overflow-hidden" aria-busy="true">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16"><Skeleton className="h-4 w-10" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-12" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-12" /></TableHead>
+                  <TableHead className="w-20"><Skeleton className="h-4 w-14" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="size-10 rounded-md" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {/* Mobile skeleton */}
+          <div className="flex lg:hidden flex-col gap-2" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
+                <Skeleton className="size-14 rounded-md shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
       {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
       {actionError && <p className="mb-3 text-sm text-destructive" role="alert">{actionError}</p>}
