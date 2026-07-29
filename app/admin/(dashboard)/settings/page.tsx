@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, invalidateApiCache } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import { useToast } from "@/components/ToastProvider";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,10 @@ function ProfileCard() {
         }),
       });
       setAdminName(res.name);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("adminName", res.name);
+      }
+      invalidateApiCache("/auth/me");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

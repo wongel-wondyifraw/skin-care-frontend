@@ -30,6 +30,9 @@ export function AdminProvider({
 
   const setAdminName = useCallback((name: string) => {
     setAdminNameState(name);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminName", name);
+    }
   }, []);
 
   const value = useMemo(
