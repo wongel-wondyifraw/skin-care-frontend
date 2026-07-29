@@ -376,7 +376,7 @@ export default function OrdersPage() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-[180px] truncate">
+                    <TableCell className="text-muted-foreground max-w-[280px] truncate">
                       {o.deliveryAddress || <span className="opacity-50">—</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs whitespace-nowrap">

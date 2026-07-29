@@ -265,7 +265,7 @@ export default function CustomersPage() {
                       {c.telegramUsername ? `@${c.telegramUsername}` : <span className="opacity-50">—</span>}
                     </TableCell>
                     <TableCell>{c.phone}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-[160px] truncate">{c.address}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[280px] truncate">{c.address}</TableCell>
                     <TableCell>
                       {c.skinType ? (
                         <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>

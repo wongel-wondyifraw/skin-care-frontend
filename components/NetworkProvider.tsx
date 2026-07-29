@@ -144,7 +144,7 @@ function ReconnectingOverlay() {
           <Skeleton className="size-8 rounded-full" />
         </div>
 
-        <div className="flex-1 p-6 space-y-4 max-w-5xl w-full mx-auto">
+        <div className="flex-1 p-6 lg:px-8 space-y-4 w-full max-w-[1600px] mx-auto">
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <WifiOff className="size-4 animate-pulse" />
             <p className="text-sm font-medium">Connection lost. Trying to reconnect…</p>
