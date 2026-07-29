@@ -71,7 +71,7 @@ function ConnectTelegramButton({ customer }: { customer: Customer }) {
     <Button
       asChild
       size="sm"
-      className="bg-[#229ED9] hover:bg-[#1b8fc5] text-white border-0"
+      className="h-8 bg-[#229ED9] hover:bg-[#1b8fc5] text-white border-0 shrink-0"
     >
       <a
         href={telegramChatUrl(customer)}
@@ -91,7 +91,7 @@ function CallButton({ customer }: { customer: Customer }) {
   if (!href) return null;
 
   return (
-    <Button asChild size="sm" variant="outline">
+    <Button asChild size="sm" variant="outline" className="h-8 shrink-0">
       <a href={href} aria-label={`Call ${customer.fullName}`}>
         <Phone className="size-3.5" />
         Call
@@ -254,7 +254,7 @@ export default function CustomersPage() {
                   <TableHead>Address</TableHead>
                   <TableHead>Skin Type</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-72">Actions</TableHead>
+                  <TableHead className="w-[280px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -275,7 +275,7 @@ export default function CustomersPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <CallButton customer={c} />
                         <ConnectTelegramButton customer={c} />
                         <Button
@@ -283,7 +283,7 @@ export default function CustomersPage() {
                           size="icon-xs"
                           onClick={() => setDeleteTarget(c)}
                           aria-label={`Delete ${c.fullName}`}
-                          className="text-destructive hover:text-destructive"
+                          className="size-8 shrink-0 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -298,31 +298,29 @@ export default function CustomersPage() {
           <div className="flex md:hidden flex-col gap-2">
             {customers.map((c) => (
               <div key={c.id} className="p-3 bg-card border border-border rounded-lg">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{c.fullName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {c.telegramUsername ? `@${c.telegramUsername}` : `ID ${c.telegramId}`} · {c.phone}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => setDeleteTarget(c)}
-                    aria-label={`Delete ${c.fullName}`}
-                    className="text-destructive hover:text-destructive shrink-0"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{c.fullName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.telegramUsername ? `@${c.telegramUsername}` : `ID ${c.telegramId}`} · {c.phone}
+                  </p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 break-words">{c.address}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
                   {c.skinType && <Badge variant="secondary" className="text-[11px]">{c.skinType.name}</Badge>}
                   <span>Joined {formatDate(c.createdAt)}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <CallButton customer={c} />
                   <ConnectTelegramButton customer={c} />
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setDeleteTarget(c)}
+                    aria-label={`Delete ${c.fullName}`}
+                    className="size-8 shrink-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}

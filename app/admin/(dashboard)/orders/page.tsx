@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
-import { Search, Check, X } from "lucide-react";
+import { Search, Check, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Select as CustomSelect } from "@/components/ui/select-custom";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
+import ConfirmModal from "@/components/ConfirmModal";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -110,6 +111,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
 
@@ -167,9 +170,10 @@ export default function OrdersPage() {
       });
       invalidateApiCache("/orders");
       invalidateApiCache("/products");
+      invalidateApiCache("/dashboard-summary");
       toast.success(
         status === "delivered"
-          ? "Order marked as delivered — stock updated"
+          ? "Order marked as delivered — customer notified"
           : "Order cancelled",
       );
       setRefreshKey((k) => k + 1);
@@ -182,28 +186,61 @@ export default function OrdersPage() {
     }
   }
 
-  function PendingActions({ order }: { order: Order }) {
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/orders/${deleteTarget.id}`, { method: "DELETE" });
+      invalidateApiCache("/orders");
+      invalidateApiCache("/dashboard-summary");
+      toast.success("Order deleted");
+      setDeleteTarget(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        reportNetworkError(err);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function OrderActions({ order }: { order: Order }) {
     const busy = updatingId === order.id;
     return (
       <div className="flex flex-wrap items-center gap-1">
+        {order.status === "pending" && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => updateStatus(order, "delivered")}
+            >
+              <Check className="size-3.5" />
+              Mark delivered
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => updateStatus(order, "cancelled")}
+              className="text-destructive hover:text-destructive"
+            >
+              <X className="size-3.5" />
+              Cancel
+            </Button>
+          </>
+        )}
         <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => updateStatus(order, "delivered")}
-        >
-          <Check className="size-3.5" />
-          Mark delivered
-        </Button>
-        <Button
-          size="sm"
           variant="ghost"
-          disabled={busy}
-          onClick={() => updateStatus(order, "cancelled")}
-          className="text-destructive hover:text-destructive"
+          size="icon-xs"
+          disabled={busy || deleting}
+          onClick={() => setDeleteTarget(order)}
+          aria-label="Delete order"
+          className="size-8 text-destructive hover:text-destructive"
         >
-          <X className="size-3.5" />
-          Cancel
+          <Trash2 className="size-3.5" />
         </Button>
       </div>
     );
@@ -317,7 +354,7 @@ export default function OrdersPage() {
                   <TableHead>Delivery address</TableHead>
                   <TableHead>Date & time</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-52">Actions</TableHead>
+                  <TableHead className="w-56">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -349,11 +386,7 @@ export default function OrdersPage() {
                       <StatusBadge status={o.status} />
                     </TableCell>
                     <TableCell>
-                      {o.status === "pending" ? (
-                        <PendingActions order={o} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <OrderActions order={o} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -383,11 +416,9 @@ export default function OrdersPage() {
                     📍 {o.deliveryAddress}
                   </p>
                 )}
-                {o.status === "pending" && (
-                  <div className="mt-3">
-                    <PendingActions order={o} />
-                  </div>
-                )}
+                <div className="mt-3">
+                  <OrderActions order={o} />
+                </div>
               </div>
             ))}
           </div>
@@ -421,6 +452,17 @@ export default function OrdersPage() {
           </div>
         </>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Order"
+        message={`Delete order for "${deleteTarget?.product?.name ?? "this product"}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }

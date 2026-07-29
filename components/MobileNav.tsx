@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems } from "./Sidebar";
+import { mobileNavItems } from "./Sidebar";
 import { isNavActive } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ export default function MobileNav() {
       className="flex lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-card border-t border-border z-50 pb-[env(safe-area-inset-bottom)]"
       aria-label="Bottom navigation"
     >
-      {navItems.map(({ href, label, icon: Icon }) => {
+      {mobileNavItems.map(({ href, label, icon: Icon }) => {
         const active = isNavActive(pathname, href);
         return (
           <Link

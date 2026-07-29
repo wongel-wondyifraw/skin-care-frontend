@@ -27,6 +27,11 @@ export const navItems = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
+/** Bottom nav on mobile — Settings lives in the top bar instead */
+export const mobileNavItems = navItems.filter(
+  (item) => item.href !== "/admin/settings",
+);
+
 export default function Sidebar({ onSignOut }: { onSignOut: () => void }) {
   const pathname = usePathname();
   const [showLogout, setShowLogout] = useState(false);

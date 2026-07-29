@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import { navItems } from "./Sidebar";
 import { pageTitleForPath } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import ConfirmModal from "./ConfirmModal";
+import { cn } from "@/lib/utils";
 
 export default function TopBar({
   adminName,
@@ -26,6 +27,7 @@ export default function TopBar({
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  const settingsActive = pathname === "/admin/settings" || pathname.startsWith("/admin/settings/");
 
   return (
     <>
@@ -51,12 +53,25 @@ export default function TopBar({
         <span className="text-sm font-semibold text-primary tracking-widest uppercase">
           Medaf
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {adminName && (
-            <span className="text-xs text-muted-foreground max-w-[80px] truncate">
+            <span className="text-xs text-muted-foreground max-w-[72px] truncate">
               {adminName}
             </span>
           )}
+          <Button
+            asChild
+            variant="ghost"
+            size="icon-xs"
+            className={cn(
+              "text-muted-foreground",
+              settingsActive && "text-primary",
+            )}
+          >
+            <Link href="/admin/settings" aria-label="Settings" aria-current={settingsActive ? "page" : undefined}>
+              <Settings className="size-3.5" />
+            </Link>
+          </Button>
           {onSignOut && (
             <Button
               variant="ghost"
