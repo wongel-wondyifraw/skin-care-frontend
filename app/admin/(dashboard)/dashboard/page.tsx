@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ShoppingBag, ClipboardList, Banknote, Users } from "lucide-react";
 import { apiFetchCached } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { useNetwork } from "@/components/NetworkProvider";
 import { isNetworkError } from "@/lib/errors";
 
@@ -48,28 +48,6 @@ function formatDateTime(iso: string) {
 function lineTotal(order: RecentOrder) {
   const unit = typeof order.cost === "number" ? order.cost : Number(order.cost);
   return (Number.isNaN(unit) ? 0 : unit) * (order.quantity || 1);
-}
-
-function StatusBadge({ status }: { status: RecentOrder["status"] }) {
-  if (status === "delivered") {
-    return (
-      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-0 text-[11px]">
-        Delivered
-      </Badge>
-    );
-  }
-  if (status === "cancelled") {
-    return (
-      <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-0 text-[11px]">
-        Cancelled
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="text-[11px]">
-      Pending
-    </Badge>
-  );
 }
 
 export default function DashboardPage() {
@@ -183,7 +161,7 @@ export default function DashboardPage() {
                     <Skeleton className="h-4 w-2/5" />
                     <Skeleton className="h-3 w-3/5" />
                   </div>
-                  <Skeleton className="h-5 w-16" />
+                  <Skeleton className="size-7 rounded-full" />
                 </div>
               ))}
             </div>
@@ -194,7 +172,7 @@ export default function DashboardPage() {
           ) : (
             <ul className="divide-y divide-border">
               {counts.recentOrders.map((order) => (
-                <li key={order.id} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <li key={order.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
                       {order.product?.name ?? "Product"}
@@ -210,7 +188,7 @@ export default function DashboardPage() {
                       {formatDateTime(order.createdAt)}
                     </p>
                   </div>
-                  <StatusBadge status={order.status} />
+                  <OrderStatusIndicator status={order.status} />
                 </li>
               ))}
             </ul>

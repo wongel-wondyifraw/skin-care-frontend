@@ -5,9 +5,9 @@ import { apiFetch, invalidateApiCache } from "@/lib/api";
 import { Search, Check, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
+import { OrderStatusIndicator, type OrderStatus } from "@/components/OrderStatusIndicator";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
@@ -15,8 +15,6 @@ import ConfirmModal from "@/components/ConfirmModal";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
-type OrderStatus = "pending" | "delivered" | "cancelled";
 
 type Order = {
   id: string;
@@ -75,28 +73,6 @@ function unitCost(cost: number | string) {
 
 function lineTotal(order: Order) {
   return unitCost(order.cost) * (order.quantity || 1);
-}
-
-function StatusBadge({ status }: { status: OrderStatus }) {
-  if (status === "delivered") {
-    return (
-      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-0 text-[11px]">
-        Delivered
-      </Badge>
-    );
-  }
-  if (status === "cancelled") {
-    return (
-      <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-0 text-[11px]">
-        Cancelled
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="text-[11px]">
-      Pending
-    </Badge>
-  );
 }
 
 export default function OrdersPage() {
@@ -383,7 +359,7 @@ export default function OrdersPage() {
                       {formatDateTime(o.createdAt)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={o.status} />
+                      <OrderStatusIndicator status={o.status} showLabel />
                     </TableCell>
                     <TableCell>
                       <OrderActions order={o} />
@@ -404,7 +380,7 @@ export default function OrdersPage() {
                       {o.customer?.fullName ?? "Customer"} · {o.customer?.phone}
                     </p>
                   </div>
-                  <StatusBadge status={o.status} />
+                  <OrderStatusIndicator status={o.status} showLabel />
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>Qty {o.quantity ?? 1}</span>
