@@ -35,6 +35,7 @@ interface SkinType { id: string; name: string }
 interface Product {
   id: string;
   name: string;
+  brand?: string | null;
   description: string | null;
   image: string;
   assetId?: string | null;
@@ -42,15 +43,37 @@ interface Product {
   category?: Category | null;
   skinTypeId?: string | null;
   skinType?: SkinType | null;
+  skinTypes?: SkinType[];
   stock: number;
   price: number;
   createdAt: string;
 }
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
-type ProductForm = { name: string; description: string; categoryId: string; skinTypeId: string; stock: string; price: string };
+type ProductForm = {
+  name: string;
+  brand: string;
+  description: string;
+  categoryId: string;
+  skinTypeIds: string[];
+  stock: string;
+  price: string;
+};
 type PaginatedResponse<T> = { items: T[]; total: number; page: number; pageSize: number };
-const emptyForm = (): ProductForm => ({ name: "", description: "", categoryId: "", skinTypeId: "", stock: "0", price: "" });
+const emptyForm = (): ProductForm => ({
+  name: "",
+  brand: "",
+  description: "",
+  categoryId: "",
+  skinTypeIds: [],
+  stock: "0",
+  price: "",
+});
+
+function productSkinLabels(prod: Product): string {
+  if (prod.skinTypes?.length) return prod.skinTypes.map((s) => s.name).join(", ");
+  return prod.skinType?.name ?? "All";
+}
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
@@ -86,15 +109,25 @@ function StockBadge({ stock }: { stock: number }) {
 }
 
 function ProductFormFields({
-  idPrefix, form, setForm, categoryOptions, skinTypeOptions, imagePreview, currentImage, currentName, onImageSelect, requireImage,
+  idPrefix, form, setForm, categoryOptions, skinTypes, imagePreview, currentImage, currentName, onImageSelect, requireImage,
 }: {
   idPrefix: string; form: ProductForm; setForm: React.Dispatch<React.SetStateAction<ProductForm>>;
   categoryOptions: { value: string; label: string }[];
-  skinTypeOptions: { value: string; label: string }[];
+  skinTypes: SkinType[];
   imagePreview: string | null; currentImage?: string; currentName?: string;
   onImageSelect: (file: File) => void; requireImage?: boolean;
 }) {
   const selectClass = "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+  function toggleSkinType(id: string) {
+    setForm((f) => ({
+      ...f,
+      skinTypeIds: f.skinTypeIds.includes(id)
+        ? f.skinTypeIds.filter((x) => x !== id)
+        : [...f.skinTypeIds, id],
+    }));
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="space-y-1.5">
@@ -103,30 +136,63 @@ function ProductFormFields({
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required data-autofocus />
       </div>
       <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-brand`}>
+          Brand <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id={`${idPrefix}-brand`}
+          placeholder="e.g. Medaf"
+          value={form.brand}
+          onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
+        />
+      </div>
+      <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-desc`}>Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
         <textarea id={`${idPrefix}-desc`} placeholder="Brief description" value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2}
           className={`${selectClass} min-h-[60px] resize-y py-2`} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Category</Label>
-          <CustomSelect
-            value={form.categoryId}
-            onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
-            options={categoryOptions}
-            placeholder="— Select —"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Skin Type</Label>
-          <CustomSelect
-            value={form.skinTypeId}
-            onValueChange={(v) => setForm((f) => ({ ...f, skinTypeId: v }))}
-            options={skinTypeOptions}
-            placeholder="— Select —"
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label>Category</Label>
+        <CustomSelect
+          value={form.categoryId}
+          onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+          options={categoryOptions}
+          placeholder="— Select —"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Skin types{" "}
+          <span className="font-normal text-muted-foreground">(select one or more)</span>
+        </Label>
+        {skinTypes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No skin types yet. Add some under Categories &amp; Skin.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5 rounded-md border border-border p-2.5 max-h-36 overflow-y-auto">
+            {skinTypes.map((st) => {
+              const selected = form.skinTypeIds.includes(st.id);
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => toggleSkinType(st.id)}
+                  aria-pressed={selected}
+                  className={
+                    selected
+                      ? "rounded-md bg-primary/15 text-primary border border-primary/30 px-2.5 py-1 text-xs font-medium"
+                      : "rounded-md bg-muted/60 text-muted-foreground border border-transparent px-2.5 py-1 text-xs hover:bg-muted"
+                  }
+                >
+                  {st.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          Leave empty to mark as suitable for all skin types.
+        </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
@@ -322,10 +388,6 @@ export default function ProductsPage() {
     () => [{ value: "", label: "— Select —" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
     [categories],
   );
-  const formSkinTypeOptions = useMemo(
-    () => [{ value: "", label: "— Select —" }, ...skinTypes.map((s) => ({ value: s.id, label: s.name }))],
-    [skinTypes],
-  );
 
   const filtersActive = !!search.trim() || !!filterCategory || !!filterSkinType || filterStock !== "all";
   const initialLoading = (refsLoading || listLoading) && products.length === 0 && total === 0;
@@ -361,11 +423,12 @@ export default function ProductsPage() {
         toastOnError: false,
         body: JSON.stringify({
           name: form.name.trim(),
+          brand: form.brand.trim() || null,
           description: form.description.trim() || undefined,
           image: up.url,
           assetId: up.assetId,
           categoryId: form.categoryId || undefined,
-          skinTypeId: form.skinTypeId || undefined,
+          skinTypeIds: form.skinTypeIds,
           stock: parseInt(form.stock, 10) || 0,
           price: parseFloat(form.price) || 0,
         }),
@@ -418,7 +481,28 @@ export default function ProductsPage() {
     }
   }
 
-  function openEdit(prod: Product) { setEditTarget(prod); setEditForm({ name: prod.name, description: prod.description ?? "", stock: String(prod.stock), price: String(prod.price ?? ""), categoryId: prod.categoryId || "", skinTypeId: prod.skinTypeId || "" }); setEditImageFile(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); setEditImagePreview(null); setEditError(null); }
+  function openEdit(prod: Product) {
+    const skinIds =
+      prod.skinTypes?.length
+        ? prod.skinTypes.map((s) => s.id)
+        : prod.skinTypeId
+          ? [prod.skinTypeId]
+          : [];
+    setEditTarget(prod);
+    setEditForm({
+      name: prod.name,
+      brand: prod.brand ?? "",
+      description: prod.description ?? "",
+      stock: String(prod.stock),
+      price: String(prod.price ?? ""),
+      categoryId: prod.categoryId || "",
+      skinTypeIds: skinIds,
+    });
+    setEditImageFile(null);
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    setEditImagePreview(null);
+    setEditError(null);
+  }
   function closeEdit() { setEditTarget(null); if (editImagePreview) URL.revokeObjectURL(editImagePreview); setEditImagePreview(null); setEditImageFile(null); }
   function handleEditImageSelect(file: File) { if (editImagePreview) URL.revokeObjectURL(editImagePreview); setEditImageFile(file); setEditImagePreview(URL.createObjectURL(file)); }
 
@@ -429,7 +513,20 @@ export default function ProductsPage() {
     try {
       let imageUrl = editTarget.image, assetId = editTarget.assetId;
       if (editImageFile) { const up = await uploadImage(editImageFile); imageUrl = up.url; assetId = up.assetId; }
-      await apiFetch<Product>(`/products/${editTarget.id}`, { method: "PATCH", body: JSON.stringify({ name: editForm.name.trim(), description: editForm.description.trim() || undefined, image: imageUrl, assetId, stock: parseInt(editForm.stock, 10) || 0, price: parseFloat(editForm.price) || 0, categoryId: editForm.categoryId || undefined, skinTypeId: editForm.skinTypeId || undefined }) });
+      await apiFetch<Product>(`/products/${editTarget.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          brand: editForm.brand.trim() || null,
+          description: editForm.description.trim() || undefined,
+          image: imageUrl,
+          assetId,
+          stock: parseInt(editForm.stock, 10) || 0,
+          price: parseFloat(editForm.price) || 0,
+          categoryId: editForm.categoryId || undefined,
+          skinTypeIds: editForm.skinTypeIds,
+        }),
+      });
       closeEdit();
       setRefreshKey((prev) => prev + 1);
     } catch (err: unknown) { setEditError(err instanceof Error ? err.message : "Failed to update product."); } finally { setEditBusy(false); }
@@ -568,8 +665,9 @@ export default function ProductsPage() {
                 <TableRow>
                   <TableHead className="w-16">Image</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Brand</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Skin Type</TableHead>
+                  <TableHead>Skin Types</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead className="w-48">Actions</TableHead>
@@ -584,8 +682,11 @@ export default function ProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{prod.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{prod.brand?.trim() || <em className="opacity-50">—</em>}</TableCell>
                     <TableCell className="text-muted-foreground">{prod.category?.name ?? <em className="opacity-50">—</em>}</TableCell>
-                    <TableCell className="text-muted-foreground">{prod.skinType?.name ?? "All"}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[200px]">
+                      <span className="line-clamp-2">{productSkinLabels(prod)}</span>
+                    </TableCell>
                     <TableCell className="font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</TableCell>
                     <TableCell><StockBadge stock={prod.stock} /></TableCell>
                     <TableCell>
@@ -625,7 +726,11 @@ export default function ProductsPage() {
                       <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{prod.category?.name ?? "Uncategorized"} · {prod.skinType?.name ?? "All"}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[prod.brand?.trim(), prod.category?.name ?? "Uncategorized", productSkinLabels(prod)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className="text-sm font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</span>
                     <StockBadge stock={prod.stock} />
@@ -666,10 +771,10 @@ export default function ProductsPage() {
       )}
 
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) closeCreate(); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Create Product</DialogTitle></DialogHeader>
           <form onSubmit={handleCreate}>
-            <ProductFormFields idPrefix="create" form={form} setForm={setForm} categoryOptions={formCategoryOptions} skinTypeOptions={formSkinTypeOptions}
+            <ProductFormFields idPrefix="create" form={form} setForm={setForm} categoryOptions={formCategoryOptions} skinTypes={skinTypes}
               imagePreview={imagePreview} onImageSelect={handleImageSelect} requireImage />
             {formError && <p className="mt-3 text-sm text-destructive" role="alert">{formError}</p>}
             <DialogFooter className="mt-5 gap-2 sm:gap-2">
@@ -681,11 +786,11 @@ export default function ProductsPage() {
       </Dialog>
 
       <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) closeEdit(); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Product</DialogTitle></DialogHeader>
           {editTarget && (
             <form onSubmit={handleEdit}>
-              <ProductFormFields idPrefix="edit" form={editForm} setForm={setEditForm} categoryOptions={formCategoryOptions} skinTypeOptions={formSkinTypeOptions}
+              <ProductFormFields idPrefix="edit" form={editForm} setForm={setEditForm} categoryOptions={formCategoryOptions} skinTypes={skinTypes}
                 imagePreview={editImagePreview} currentImage={editTarget.image} currentName={editTarget.name} onImageSelect={handleEditImageSelect} />
               {editError && <p className="mt-3 text-sm text-destructive" role="alert">{editError}</p>}
               <DialogFooter className="mt-5 gap-2 sm:gap-2">
