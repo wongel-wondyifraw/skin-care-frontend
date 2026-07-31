@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, Search, PackagePlus } from "lucide-react";
 import Link from "next/link";
+import { Plus, Pencil, Trash2, Search, PackagePlus, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { ProductImagePreview } from "@/components/ProductImagePreview";
 import { useToast } from "@/components/ToastProvider";
 import { useNetwork } from "@/components/NetworkProvider";
 import { ApiError, isNetworkError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,8 @@ interface Product {
 }
 
 type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
+type ViewMode = "table" | "tiles";
+type SortMode = "name" | "recent";
 type ProductForm = {
   name: string;
   brand: string;
@@ -71,6 +74,8 @@ const emptyForm = (): ProductForm => ({
   stock: "0",
   price: "",
 });
+
+const VIEW_MODE_KEY = "productsViewMode";
 
 function productSkinLabels(prod: Product): string {
   if (prod.skinTypes?.length) return prod.skinTypes.map((s) => s.name).join(", ");
@@ -108,6 +113,106 @@ function StockBadge({ stock }: { stock: number }) {
   if (stock < 10)
     return <Badge variant="outline" className="text-[11px] border-primary/40 text-primary">{stock} — Low</Badge>;
   return <Badge variant="secondary" className="text-[11px]">{stock} in stock</Badge>;
+}
+
+function ProductTile({
+  prod,
+  deletingId,
+  onRestock,
+  onEdit,
+  onDelete,
+}: {
+  prod: Product;
+  deletingId: string | null;
+  onRestock: (p: Product) => void;
+  onEdit: (p: Product) => void;
+  onDelete: (p: Product) => void;
+}) {
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-md active:scale-[0.99]">
+      <Link
+        href={`/admin/products/${prod.id}`}
+        className="relative block aspect-[3/4] sm:aspect-[4/5] overflow-hidden bg-muted no-underline"
+      >
+        <Image
+          src={prod.image}
+          alt={prod.name}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
+        <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1">
+          <StockBadge stock={prod.stock} />
+        </div>
+        <div className="absolute bottom-2 left-2 right-2 sm:hidden">
+          <p className="text-[11px] font-semibold text-white drop-shadow-sm line-clamp-1">
+            {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : ""}
+          </p>
+        </div>
+      </Link>
+
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3.5">
+        {prod.brand?.trim() && (
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">
+            {prod.brand.trim()}
+          </p>
+        )}
+        <Link
+          href={`/admin/products/${prod.id}`}
+          className="text-[13px] sm:text-sm font-semibold text-foreground leading-snug line-clamp-2 no-underline hover:text-primary"
+        >
+          {prod.name}
+        </Link>
+        {prod.description?.trim() && (
+          <p className="hidden sm:block text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+            {prod.description.trim()}
+          </p>
+        )}
+        <p className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-1">
+          {[prod.category?.name, productSkinLabels(prod)].filter(Boolean).join(" · ")}
+        </p>
+
+        <div className="mt-auto pt-0.5 hidden sm:flex items-end justify-between gap-2">
+          <p className="text-base font-semibold tracking-tight">
+            {prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 pt-1.5 border-t border-border/80">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 text-[11px] sm:text-xs px-2"
+            onClick={() => onRestock(prod)}
+            aria-label={`Restock ${prod.name}`}
+          >
+            <PackagePlus className="size-3.5" />
+            <span className="sm:inline">Restock</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="size-8"
+            onClick={() => onEdit(prod)}
+            aria-label={`Edit ${prod.name}`}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="size-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(prod)}
+            disabled={deletingId === prod.id}
+            aria-label={`Delete ${prod.name}`}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function ProductFormFields({
@@ -268,6 +373,7 @@ export default function ProductsPage() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterSkinType, setFilterSkinType] = useState("");
   const [filterStock, setFilterStock] = useState<StockFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("name");
   const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -293,8 +399,28 @@ export default function ProductsPage() {
   const [restockBusy, setRestockBusy] = useState(false);
   const [restockError, setRestockError] = useState<string | null>(null);
 
+  const [viewMode, setViewMode] = useState<ViewMode>("tiles");
+
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_MODE_KEY);
+      if (saved === "table" || saved === "tiles") setViewMode(saved);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function changeViewMode(mode: ViewMode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -335,6 +461,7 @@ export default function ProductsPage() {
     if (filterCategory) params.set("categoryId", filterCategory);
     if (filterSkinType) params.set("skinTypeId", filterSkinType);
     if (filterStock !== "all") params.set("stock", filterStock);
+    params.set("sort", sortMode);
 
     (async () => {
       try {
@@ -360,7 +487,7 @@ export default function ProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, search, filterCategory, filterSkinType, filterStock, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
+  }, [page, pageSize, search, filterCategory, filterSkinType, filterStock, sortMode, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
@@ -383,6 +510,13 @@ export default function ProductsPage() {
       { value: "in_stock", label: "In Stock" },
       { value: "low_stock", label: "Low (< 10)" },
       { value: "out_of_stock", label: "Out of Stock" },
+    ],
+    [],
+  );
+  const sortOptions = useMemo(
+    () => [
+      { value: "name", label: "A–Z" },
+      { value: "recent", label: "Recent" },
     ],
     [],
   );
@@ -600,55 +734,114 @@ export default function ProductsPage() {
             size="sm"
             className="w-32"
           />
+          <CustomSelect
+            value={sortMode}
+            onValueChange={(v) => { setSortMode(v as SortMode); setPage(1); }}
+            options={sortOptions}
+            placeholder="Sort"
+            size="sm"
+            className="w-28"
+          />
+          <div
+            className="ml-auto hidden md:inline-flex items-center rounded-md border border-border bg-card p-0.5"
+            role="group"
+            aria-label="View mode"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className={cn(
+                "size-8 rounded-sm",
+                viewMode === "tiles" && "bg-accent text-accent-foreground",
+              )}
+              aria-pressed={viewMode === "tiles"}
+              aria-label="Tile view"
+              onClick={() => changeViewMode("tiles")}
+            >
+              <LayoutGrid className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className={cn(
+                "size-8 rounded-sm",
+                viewMode === "table" && "bg-accent text-accent-foreground",
+              )}
+              aria-pressed={viewMode === "table"}
+              aria-label="Table view"
+              onClick={() => changeViewMode("table")}
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 
       {initialLoading && (
         <>
-          {/* Desktop skeleton */}
-          <div className="hidden md:block border border-border rounded-lg overflow-hidden" aria-busy="true">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16"><Skeleton className="h-4 w-10" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-12" /></TableHead>
-                  <TableHead><Skeleton className="h-4 w-12" /></TableHead>
-                  <TableHead className="w-48"><Skeleton className="h-4 w-14" /></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="size-10 rounded-md" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-24" /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {/* Mobile skeleton */}
-          <div className="flex md:hidden flex-col gap-2" aria-busy="true">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
-                <Skeleton className="size-14 rounded-md shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <div className="flex gap-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-5 w-14 rounded-full" />
-                  </div>
+          {/* Mobile always uses tile skeleton */}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:hidden" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-border">
+                <Skeleton className="aspect-[3/4] w-full rounded-none" />
+                <div className="p-2.5 space-y-2">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-8 w-full" />
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Desktop skeleton follows view mode */}
+          <div className="hidden md:block">
+            {viewMode === "tiles" ? (
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4" aria-busy="true">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="overflow-hidden rounded-2xl border border-border">
+                    <Skeleton className="aspect-[4/5] w-full rounded-none" />
+                    <div className="p-3 space-y-2">
+                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-4 w-4/5" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-5 w-1/2" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg overflow-hidden" aria-busy="true">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16"><Skeleton className="h-4 w-10" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-12" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-12" /></TableHead>
+                      <TableHead className="w-48"><Skeleton className="h-4 w-14" /></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="size-10 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -671,93 +864,91 @@ export default function ProductsPage() {
 
       {!initialLoading && !fetchError && products.length > 0 && (
         <>
-          <div className="hidden md:block border border-border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Skin Types</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead className="w-48">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((prod) => (
-                  <TableRow key={prod.id} className="group/row">
-                    <TableCell>
-                      <ProductImagePreview src={prod.image} alt={prod.name} size="sm" />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/admin/products/${prod.id}`}
-                        className="text-foreground no-underline hover:text-primary hover:underline underline-offset-2"
-                      >
-                        {prod.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{prod.brand?.trim() || <em className="opacity-50">—</em>}</TableCell>
-                    <TableCell className="text-muted-foreground">{prod.category?.name ?? <em className="opacity-50">—</em>}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-[200px]">
-                      <span className="line-clamp-2">{productSkinLabels(prod)}</span>
-                    </TableCell>
-                    <TableCell className="font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</TableCell>
-                    <TableCell><StockBadge stock={prod.stock} /></TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <Button variant="outline" size="sm" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
-                          <PackagePlus className="size-3.5" /> Restock
-                        </Button>
-                        <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)} aria-label={`Edit ${prod.name}`}>
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} disabled={deletingId === prod.id}
-                          aria-label={`Delete ${prod.name}`} className="text-destructive hover:text-destructive">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          {/* Mobile: always ecommerce tiles */}
+          <div className="grid grid-cols-2 gap-2.5 md:hidden">
+            {products.map((prod) => (
+              <ProductTile
+                key={prod.id}
+                prod={prod}
+                deletingId={deletingId}
+                onRestock={openRestock}
+                onEdit={openEdit}
+                onDelete={setDeleteTarget}
+              />
+            ))}
           </div>
 
-          <div className="flex md:hidden flex-col gap-2">
-            {products.map((prod) => (
-              <div key={prod.id} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
-                <ProductImagePreview src={prod.image} alt={prod.name} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <Link
-                      href={`/admin/products/${prod.id}`}
-                      className="text-sm font-medium text-foreground no-underline hover:text-primary"
-                    >
-                      {prod.name}
-                    </Link>
-                    <div className="flex gap-0.5 shrink-0">
-                      <Button variant="ghost" size="icon-xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
-                        <Plus className="size-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)}><Pencil className="size-3.5" /></Button>
-                      <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {[prod.brand?.trim(), prod.category?.name ?? "Uncategorized", productSkinLabels(prod)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="text-sm font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</span>
-                    <StockBadge stock={prod.stock} />
-                  </div>
-                </div>
+          {/* Desktop: tiles or table */}
+          <div className="hidden md:block">
+            {viewMode === "tiles" ? (
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4">
+                {products.map((prod) => (
+                  <ProductTile
+                    key={prod.id}
+                    prod={prod}
+                    deletingId={deletingId}
+                    onRestock={openRestock}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                  />
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Brand</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Skin Types</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead className="w-48">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((prod) => (
+                      <TableRow key={prod.id} className="group/row">
+                        <TableCell>
+                          <ProductImagePreview src={prod.image} alt={prod.name} size="sm" />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={`/admin/products/${prod.id}`}
+                            className="text-foreground no-underline hover:text-primary hover:underline underline-offset-2"
+                          >
+                            {prod.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{prod.brand?.trim() || <em className="opacity-50">—</em>}</TableCell>
+                        <TableCell className="text-muted-foreground">{prod.category?.name ?? <em className="opacity-50">—</em>}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-[200px]">
+                          <span className="line-clamp-2">{productSkinLabels(prod)}</span>
+                        </TableCell>
+                        <TableCell className="font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</TableCell>
+                        <TableCell><StockBadge stock={prod.stock} /></TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Button variant="outline" size="sm" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
+                              <PackagePlus className="size-3.5" /> Restock
+                            </Button>
+                            <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)} aria-label={`Edit ${prod.name}`}>
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} disabled={deletingId === prod.id}
+                              aria-label={`Delete ${prod.name}`} className="text-destructive hover:text-destructive">
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
