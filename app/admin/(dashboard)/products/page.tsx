@@ -164,11 +164,6 @@ function ProductTile({
         >
           {prod.name}
         </Link>
-        {prod.description?.trim() && (
-          <p className="hidden sm:block text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-            {prod.description.trim()}
-          </p>
-        )}
         <p className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-1">
           {[prod.category?.name, productSkinLabels(prod)].filter(Boolean).join(" · ")}
         </p>
@@ -743,7 +738,7 @@ export default function ProductsPage() {
             className="w-28"
           />
           <div
-            className="ml-auto hidden md:inline-flex items-center rounded-md border border-border bg-card p-0.5"
+            className="ml-auto inline-flex items-center rounded-md border border-border bg-card p-0.5 shrink-0"
             role="group"
             aria-label="View mode"
           >
@@ -781,39 +776,22 @@ export default function ProductsPage() {
 
       {initialLoading && (
         <>
-          {/* Mobile always uses tile skeleton */}
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:hidden" aria-busy="true">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="overflow-hidden rounded-2xl border border-border">
-                <Skeleton className="aspect-[3/4] w-full rounded-none" />
-                <div className="p-2.5 space-y-2">
-                  <Skeleton className="h-3 w-1/3" />
-                  <Skeleton className="h-4 w-4/5" />
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop skeleton follows view mode */}
-          <div className="hidden md:block">
-            {viewMode === "tiles" ? (
-              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4" aria-busy="true">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="overflow-hidden rounded-2xl border border-border">
-                    <Skeleton className="aspect-[4/5] w-full rounded-none" />
-                    <div className="p-3 space-y-2">
-                      <Skeleton className="h-3 w-1/3" />
-                      <Skeleton className="h-4 w-4/5" />
-                      <Skeleton className="h-3 w-full" />
-                      <Skeleton className="h-5 w-1/2" />
-                      <Skeleton className="h-8 w-full" />
-                    </div>
+          {viewMode === "tiles" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4" aria-busy="true">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="overflow-hidden rounded-2xl border border-border">
+                  <Skeleton className="aspect-[3/4] sm:aspect-[4/5] w-full rounded-none" />
+                  <div className="p-2.5 sm:p-3 space-y-2">
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-4 w-4/5" />
+                    <Skeleton className="h-8 w-full" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="border border-border rounded-lg overflow-hidden" aria-busy="true">
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block border border-border rounded-lg overflow-hidden" aria-busy="true">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -841,8 +819,20 @@ export default function ProductsPage() {
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </div>
+              <div className="flex md:hidden flex-col gap-2" aria-busy="true">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
+                    <Skeleton className="size-14 rounded-md shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
       {fetchError && <p className="text-sm text-destructive" role="alert">{fetchError}</p>}
@@ -864,37 +854,22 @@ export default function ProductsPage() {
 
       {!initialLoading && !fetchError && products.length > 0 && (
         <>
-          {/* Mobile: always ecommerce tiles */}
-          <div className="grid grid-cols-2 gap-2.5 md:hidden">
-            {products.map((prod) => (
-              <ProductTile
-                key={prod.id}
-                prod={prod}
-                deletingId={deletingId}
-                onRestock={openRestock}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
-              />
-            ))}
-          </div>
-
-          {/* Desktop: tiles or table */}
-          <div className="hidden md:block">
-            {viewMode === "tiles" ? (
-              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4">
-                {products.map((prod) => (
-                  <ProductTile
-                    key={prod.id}
-                    prod={prod}
-                    deletingId={deletingId}
-                    onRestock={openRestock}
-                    onEdit={openEdit}
-                    onDelete={setDeleteTarget}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="border border-border rounded-lg overflow-hidden">
+          {viewMode === "tiles" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+              {products.map((prod) => (
+                <ProductTile
+                  key={prod.id}
+                  prod={prod}
+                  deletingId={deletingId}
+                  onRestock={openRestock}
+                  onEdit={openEdit}
+                  onDelete={setDeleteTarget}
+                />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block border border-border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -948,8 +923,42 @@ export default function ProductsPage() {
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </div>
+
+              <div className="flex md:hidden flex-col gap-2">
+                {products.map((prod) => (
+                  <div key={prod.id} className="flex gap-3 p-3 bg-card border border-border rounded-xl">
+                    <ProductImagePreview src={prod.image} alt={prod.name} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={`/admin/products/${prod.id}`}
+                          className="text-sm font-medium text-foreground no-underline hover:text-primary"
+                        >
+                          {prod.name}
+                        </Link>
+                        <div className="flex gap-0.5 shrink-0">
+                          <Button variant="ghost" size="icon-xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
+                            <Plus className="size-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon-xs" onClick={() => openEdit(prod)}><Pencil className="size-3.5" /></Button>
+                          <Button variant="ghost" size="icon-xs" onClick={() => setDeleteTarget(prod)} className="text-destructive hover:text-destructive"><Trash2 className="size-3.5" /></Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[prod.brand?.trim(), prod.category?.name ?? "Uncategorized", productSkinLabels(prod)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-sm font-medium">{prod.price != null ? `${Number(prod.price).toFixed(2)} ETB` : "—"}</span>
+                        <StockBadge stock={prod.stock} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
