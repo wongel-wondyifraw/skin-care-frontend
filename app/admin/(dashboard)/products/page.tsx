@@ -158,7 +158,7 @@ function ProductFormFields({
           value={form.categoryId}
           onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
           options={categoryOptions}
-          placeholder="— Select —"
+          placeholder={categoryOptions[0]?.label ?? "No categories"}
         />
       </div>
       <div className="space-y-1.5">
@@ -385,7 +385,7 @@ export default function ProductsPage() {
     [],
   );
   const formCategoryOptions = useMemo(
-    () => [{ value: "", label: "— Select —" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+    () => categories.map((c) => ({ value: c.id, label: c.name })),
     [categories],
   );
 
@@ -393,7 +393,17 @@ export default function ProductsPage() {
   const initialLoading = (refsLoading || listLoading) && products.length === 0 && total === 0;
   function clearFilters() { setSearchInput(""); setFilterCategory(""); setFilterSkinType(""); setFilterStock("all"); setPage(1); }
 
-  function openModal() { setForm(emptyForm()); setImageFile(null); if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setFormError(null); setModalOpen(true); }
+  function openModal() {
+    setForm({
+      ...emptyForm(),
+      categoryId: categories[0]?.id ?? "",
+    });
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    setFormError(null);
+    setModalOpen(true);
+  }
   function closeCreate() { setModalOpen(false); if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); }
   function handleImageSelect(file: File) { if (imagePreview) URL.revokeObjectURL(imagePreview); setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
 
@@ -495,7 +505,7 @@ export default function ProductsPage() {
       description: prod.description ?? "",
       stock: String(prod.stock),
       price: String(prod.price ?? ""),
-      categoryId: prod.categoryId || "",
+      categoryId: prod.categoryId || categories[0]?.id || "",
       skinTypeIds: skinIds,
     });
     setEditImageFile(null);
