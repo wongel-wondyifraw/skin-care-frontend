@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import Image from "next/image";
 import { Plus, Pencil, Trash2, Search, PackagePlus } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
+import { ProductImagePreview } from "@/components/ProductImagePreview";
 import { useToast } from "@/components/ToastProvider";
 import { useNetwork } from "@/components/NetworkProvider";
 import { ApiError, isNetworkError } from "@/lib/errors";
@@ -685,13 +687,18 @@ export default function ProductsPage() {
               </TableHeader>
               <TableBody>
                 {products.map((prod) => (
-                  <TableRow key={prod.id}>
+                  <TableRow key={prod.id} className="group/row">
                     <TableCell>
-                      <div className="relative size-10 rounded-md overflow-hidden bg-muted">
-                        <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="40px" />
-                      </div>
+                      <ProductImagePreview src={prod.image} alt={prod.name} size="sm" />
                     </TableCell>
-                    <TableCell className="font-medium">{prod.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/admin/products/${prod.id}`}
+                        className="text-foreground no-underline hover:text-primary hover:underline underline-offset-2"
+                      >
+                        {prod.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{prod.brand?.trim() || <em className="opacity-50">—</em>}</TableCell>
                     <TableCell className="text-muted-foreground">{prod.category?.name ?? <em className="opacity-50">—</em>}</TableCell>
                     <TableCell className="text-muted-foreground max-w-[200px]">
@@ -722,12 +729,15 @@ export default function ProductsPage() {
           <div className="flex md:hidden flex-col gap-2">
             {products.map((prod) => (
               <div key={prod.id} className="flex gap-3 p-3 bg-card border border-border rounded-lg">
-                <div className="relative size-14 rounded-md overflow-hidden bg-muted shrink-0">
-                  <Image src={prod.image} alt={prod.name} fill className="object-cover" sizes="56px" />
-                </div>
+                <ProductImagePreview src={prod.image} alt={prod.name} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium">{prod.name}</span>
+                    <Link
+                      href={`/admin/products/${prod.id}`}
+                      className="text-sm font-medium text-foreground no-underline hover:text-primary"
+                    >
+                      {prod.name}
+                    </Link>
                     <div className="flex gap-0.5 shrink-0">
                       <Button variant="ghost" size="icon-xs" onClick={() => openRestock(prod)} aria-label={`Restock ${prod.name}`}>
                         <Plus className="size-3.5" />
