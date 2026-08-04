@@ -11,6 +11,7 @@ import {
   Droplets,
   Calendar,
   Banknote,
+  Pencil,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductImagePreview } from "@/components/ProductImagePreview";
+import { StockBadge } from "@/components/StockBadge";
 import { useNetwork } from "@/components/NetworkProvider";
 import { isNetworkError } from "@/lib/errors";
+import { formatDateTime, formatMoney } from "@/lib/format";
 
 type Category = { id: string; name: string };
 type SkinType = { id: string; name: string };
@@ -43,30 +46,6 @@ function skinLabels(prod: Product): string[] {
   if (prod.skinTypes?.length) return prod.skinTypes.map((s) => s.name);
   if (prod.skinType?.name) return [prod.skinType.name];
   return ["All"];
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function StockBadge({ stock }: { stock: number }) {
-  if (stock === 0) return <Badge variant="destructive">Out of Stock</Badge>;
-  if (stock < 10) {
-    return (
-      <Badge variant="outline" className="border-primary/40 text-primary">
-        {stock} — Low stock
-      </Badge>
-    );
-  }
-  return <Badge variant="secondary">{stock} in stock</Badge>;
 }
 
 function InfoRow({
@@ -169,12 +148,20 @@ export default function ProductDetailPage() {
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
-        <Link href="/admin/products">
-          <ArrowLeft className="size-4" />
-          Products
-        </Link>
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
+          <Link href="/admin/products">
+            <ArrowLeft className="size-4" />
+            Products
+          </Link>
+        </Button>
+        <Button size="sm" asChild>
+          <Link href={`/admin/products?edit=${product.id}`}>
+            <Pencil className="size-4" />
+            Edit product
+          </Link>
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
         <div>
@@ -205,7 +192,7 @@ export default function ProductDetailPage() {
               <StockBadge stock={product.stock} />
               <span className="text-lg font-semibold text-foreground">
                 {product.price != null
-                  ? `${Number(product.price).toFixed(2)} ETB`
+                  ? formatMoney(Number(product.price))
                   : "Price not set"}
               </span>
             </div>
@@ -215,7 +202,7 @@ export default function ProductDetailPage() {
             <CardContent className="p-4 sm:p-5">
               <InfoRow icon={Banknote} label="Price">
                 {product.price != null
-                  ? `${Number(product.price).toFixed(2)} ETB`
+                  ? formatMoney(Number(product.price))
                   : "—"}
               </InfoRow>
               <InfoRow icon={Package} label="Stock">
@@ -245,7 +232,7 @@ export default function ProductDetailPage() {
                 </div>
               </InfoRow>
               <InfoRow icon={Calendar} label="Added">
-                {formatDate(product.createdAt)}
+                {formatDateTime(product.createdAt)}
               </InfoRow>
             </CardContent>
           </Card>

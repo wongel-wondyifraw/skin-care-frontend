@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { invalidateApiCache } from "@/lib/api";
+import { sanitizeErrorMessage } from "@/lib/errors";
+import { safeAdminReturnPath } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +24,7 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,7 +45,7 @@ export default function LoginForm() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? "Invalid credentials");
+        throw new Error(sanitizeErrorMessage(body?.message ?? body, res.status));
       }
 
       const data = await res.json();
@@ -53,9 +56,17 @@ export default function LoginForm() {
       document.cookie = `adminToken=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`;
       invalidateApiCache();
 
-      router.push("/admin/dashboard");
+      const dest = safeAdminReturnPath(searchParams.get("from"));
+      router.push(dest);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(
+        sanitizeErrorMessage(
+          err instanceof Error ? err.message : "Login failed",
+          err instanceof Error && "status" in err
+            ? Number((err as { status: number }).status)
+            : undefined,
+        ),
+      );
       setLoading(false);
     }
   }

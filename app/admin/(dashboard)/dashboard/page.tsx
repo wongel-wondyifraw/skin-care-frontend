@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { useNetwork } from "@/components/NetworkProvider";
 import { isNetworkError } from "@/lib/errors";
+import { formatDateTime, formatMoney } from "@/lib/format";
 
 type RecentOrder = {
   id: string;
@@ -29,21 +30,6 @@ type DashboardSummary = {
   sales: number;
   recentOrders: RecentOrder[];
 };
-
-function formatMoney(amount: number) {
-  return `${amount.toFixed(2)} ETB`;
-}
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function lineTotal(order: RecentOrder) {
   const unit = typeof order.cost === "number" ? order.cost : Number(order.cost);
@@ -105,7 +91,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Overview</h2>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Overview</h1>
         <p className="text-sm text-muted-foreground">
           Orders, sales from delivered orders, and recent activity.
         </p>

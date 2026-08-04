@@ -1,6 +1,7 @@
 import { ApiError, isNetworkError, sanitizeErrorMessage } from "@/lib/errors";
 import { getToast } from "@/components/ToastProvider";
 import { notifyNetworkLoss } from "@/components/NetworkProvider";
+import { clearAdminSession } from "@/lib/session";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
 
@@ -11,8 +12,22 @@ type CacheEntry<T> = {
 
 const requestCache = new Map<string, CacheEntry<unknown>>();
 
+let redirectingToLogin = false;
+
 function cacheKey(path: string) {
   return `GET:${path}`;
+}
+
+function handleUnauthorized() {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (path.startsWith("/admin/login")) return;
+  if (redirectingToLogin) return;
+  redirectingToLogin = true;
+  clearAdminSession();
+  requestCache.clear();
+  const from = encodeURIComponent(path + window.location.search);
+  window.location.assign(`/admin/login?from=${from}`);
 }
 
 type ApiFetchOptions = RequestInit & {
@@ -67,10 +82,14 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      handleUnauthorized();
+    }
     const body = await res.json().catch(() => ({}));
     const safe = sanitizeErrorMessage(body?.message ?? body, res.status);
     const err = new ApiError(safe, res.status, body?.error);
-    if (shouldToast) getToast()?.error(err);
+    // Avoid toast spam when redirecting to login
+    if (shouldToast && res.status !== 401) getToast()?.error(err);
     throw err;
   }
 

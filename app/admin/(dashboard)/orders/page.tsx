@@ -8,9 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
 import { OrderStatusIndicator, type OrderStatus } from "@/components/OrderStatusIndicator";
+import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
+import { formatDateTime, formatMoney } from "@/lib/format";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import type { PaginatedResponse } from "@/lib/types/pagination";
 import ConfirmModal from "@/components/ConfirmModal";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -36,35 +40,7 @@ type Order = {
   } | null;
 };
 
-type PaginatedResponse<T> = { items: T[]; total: number; page: number; pageSize: number };
 type StatusFilter = "all" | OrderStatus;
-
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(timeout);
-  }, [value, delayMs]);
-
-  return debounced;
-}
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatMoney(amount: number) {
-  return `${amount.toFixed(2)} ETB`;
-}
 
 function unitCost(cost: number | string) {
   const n = typeof cost === "number" ? cost : Number(cost);
@@ -134,8 +110,6 @@ export default function OrdersPage() {
       cancelled = true;
     };
   }, [page, search, statusFilter, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   async function updateStatus(order: Order, status: "delivered" | "cancelled") {
     setUpdatingId(order.id);
@@ -258,7 +232,7 @@ export default function OrdersPage() {
       </div>
 
       {fetchError && (
-        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
           {fetchError}
         </div>
       )}
@@ -399,33 +373,15 @@ export default function OrdersPage() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Showing {orders.length === 0 ? 0 : (page - 1) * pageSize + 1}
-              {" "}to {Math.min(page * pageSize, total)} of {total} orders
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                disabled={page === 1 || loading}
-              >
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={page >= totalPages || loading}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            itemCount={orders.length}
+            loading={loading}
+            itemLabel="orders"
+            onPageChange={setPage}
+          />
         </>
       )}
 

@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
+import { formatDate } from "@/lib/format";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import type { PaginatedResponse } from "@/lib/types/pagination";
 import ConfirmModal from "@/components/ConfirmModal";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -28,24 +32,6 @@ type Customer = {
   createdAt: string;
   updatedAt: string;
 };
-type PaginatedResponse<T> = { items: T[]; total: number; page: number; pageSize: number };
-
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(timeout);
-  }, [value, delayMs]);
-
-  return debounced;
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
-}
 
 function telegramChatUrl(customer: Customer) {
   const username = customer.telegramUsername?.replace(/^@/, "").trim();
@@ -71,7 +57,7 @@ function ConnectTelegramButton({ customer }: { customer: Customer }) {
     <Button
       asChild
       size="sm"
-      className="h-8 bg-[#229ED9] hover:bg-[#1b8fc5] text-white border-0 shrink-0"
+      className="h-8 bg-sky-600 hover:bg-sky-700 text-white border-0 shrink-0"
     >
       <a
         href={telegramChatUrl(customer)}
@@ -182,7 +168,7 @@ export default function CustomersPage() {
     <>
       <div className="flex items-end justify-between flex-wrap gap-4 mb-5">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Customers</h2>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Customers</h1>
           <p className="text-sm text-muted-foreground">Customer profiles + Telegram registration info.</p>
         </div>
         <div className="relative w-full sm:w-72">
@@ -326,33 +312,15 @@ export default function CustomersPage() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Showing {customers.length === 0 ? 0 : (page - 1) * pageSize + 1}
-              {" "}to {Math.min(page * pageSize, total)} of {total} customers
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                disabled={page === 1 || loading}
-              >
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={page >= totalPages || loading}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            itemCount={customers.length}
+            loading={loading}
+            itemLabel="customers"
+            onPageChange={setPage}
+          />
         </>
       )}
 

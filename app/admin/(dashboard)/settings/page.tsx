@@ -259,7 +259,7 @@ export default function SettingsPage() {
     <>
       <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Settings</h2>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Settings</h1>
           <p className="text-sm text-muted-foreground">Manage your profile and admin accounts.</p>
         </div>
         <Button

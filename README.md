@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Medaf Skin Care — Admin Frontend
 
-## Getting Started
+Next.js admin portal for Medaf Skin Care (catalogue, orders, customers, settings).
 
-First, run the development server:
+## Setup
+
+```bash
+npm install
+```
+
+Copy env as needed:
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api
+```
+
+## Develop
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — unauthenticated visits redirect to `/admin/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Local Next.js server |
+| `npm run build` | Production build |
+| `npm run start` | Serve production build |
+| `npm run lint` | ESLint |
+| `npm run test:e2e` | Playwright smoke tests |
+| `npm run test:e2e:ui` | Playwright UI mode |
 
-## Learn More
+## E2E smoke test
 
-To learn more about Next.js, take a look at the following resources:
+Requires the frontend (and usually the backend API) running.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Terminal A
+npm run dev
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Terminal B — with admin credentials
+set E2E_ADMIN_EMAIL=admin@example.com
+set E2E_ADMIN_PASSWORD=your-password
+npm run test:e2e
+```
 
-## Deploy on Vercel
+On Unix:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+E2E_ADMIN_EMAIL=admin@example.com E2E_ADMIN_PASSWORD=your-password npm run test:e2e
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If credentials are missing, the smoke test skips instead of failing.
+
+Optional: `PLAYWRIGHT_BASE_URL` (default `http://localhost:3000`).

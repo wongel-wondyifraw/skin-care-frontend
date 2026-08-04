@@ -8,6 +8,7 @@ import MobileNav from "@/components/MobileNav";
 import { AdminProvider, useAdmin } from "@/lib/admin-context";
 import { apiFetch, apiFetchCached, invalidateApiCache } from "@/lib/api";
 import { isNetworkError } from "@/lib/errors";
+import { clearAdminSession } from "@/lib/session";
 import { NetworkProvider, useNetwork } from "@/components/NetworkProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WifiOff } from "lucide-react";
@@ -50,9 +51,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           setAuthOffline(true);
           return;
         }
-        localStorage.removeItem("adminToken");
-        localStorage.removeItem("adminName");
-        document.cookie = "adminToken=; path=/; max-age=0";
+        clearAdminSession();
         router.replace("/admin/login");
       }
     })();
@@ -67,9 +66,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     } catch {
       // proceed even if logout API fails
     }
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminName");
-    document.cookie = "adminToken=; path=/; max-age=0";
+    clearAdminSession();
     invalidateApiCache();
     router.push("/admin/login");
   }, [router]);

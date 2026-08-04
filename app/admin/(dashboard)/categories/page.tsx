@@ -431,7 +431,7 @@ export default function CategoriesAndSkinPage() {
   return (
     <>
       <div className="mb-5">
-        <h2 className="text-lg font-semibold text-foreground">Categories & Skin</h2>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Categories & Skin</h1>
         <p className="text-sm text-muted-foreground">Manage product categories and skin type definitions.</p>
       </div>
 
