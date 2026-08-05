@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   Users,
   ClipboardList,
+  ScanFace,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -24,6 +25,7 @@ export const navItems = [
   { href: "/admin/products", label: "Products", icon: ShoppingBag },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/scans", label: "Skin Scans", icon: ScanFace },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
