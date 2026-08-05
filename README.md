@@ -11,8 +11,12 @@ npm install
 Copy env as needed:
 
 ```bash
-# .env.local
+# Local backend
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api
+
+# Or local frontend → Render backend (recommended for quick runs)
+NEXT_PUBLIC_API_BASE_URL=/api
+API_PROXY_TARGET=https://skin-care-backend-br1d.onrender.com
 ```
 
 ## Develop

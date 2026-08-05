@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { invalidateApiCache } from "@/lib/api";
+import { API_BASE_URL, invalidateApiCache } from "@/lib/api";
 import { sanitizeErrorMessage } from "@/lib/errors";
 import { safeAdminReturnPath } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { BrandLogo } from "@/components/BrandLogo";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false);
@@ -37,7 +35,7 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

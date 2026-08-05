@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+function proxyTarget() {
+  const raw = process.env.API_PROXY_TARGET?.trim();
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "").replace(/\/api$/i, "");
+}
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
@@ -11,6 +17,16 @@ const nextConfig: NextConfig = {
         hostname: "res.cloudinary.com",
       },
     ],
+  },
+  async rewrites() {
+    const target = proxyTarget();
+    if (!target) return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${target}/api/:path*`,
+      },
+    ];
   },
 };
 

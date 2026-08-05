@@ -50,8 +50,8 @@ export default function TopBar({
       </header>
 
       {/* Mobile */}
-      <header className="flex lg:hidden items-center justify-between px-4 h-12 bg-card border-b border-border sticky top-0 z-10">
-        <BrandLogo href="/admin/dashboard" size="sm" />
+      <header className="flex lg:hidden items-center justify-between px-3 h-14 bg-card border-b border-border sticky top-0 z-10">
+        <BrandLogo href="/admin/dashboard" size="sm" stacked priority />
         <div className="flex items-center gap-1.5">
           {adminName && (
             <span className="text-xs text-muted-foreground max-w-[72px] truncate">

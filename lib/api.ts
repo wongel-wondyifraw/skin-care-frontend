@@ -3,7 +3,25 @@ import { getToast } from "@/components/ToastProvider";
 import { notifyNetworkLoss } from "@/components/NetworkProvider";
 import { clearAdminSession } from "@/lib/session";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
+export function resolveApiBaseUrl(
+  raw = process.env.NEXT_PUBLIC_API_BASE_URL,
+): string {
+  let value = (raw ?? "http://localhost:4000/api").trim() || "http://localhost:4000/api";
+  value = value.replace(/\/+$/, "");
+  if (value.startsWith("/")) return value;
+
+  try {
+    const url = new URL(value);
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    if (path === "/") url.pathname = "/api";
+    else if (path !== "/api" && !path.endsWith("/api")) url.pathname = `${path}/api`;
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return value;
+  }
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 type CacheEntry<T> = {
   expiresAt: number;

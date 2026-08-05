@@ -3,9 +3,9 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
-  sm: { width: 88, height: 32, className: "h-8 w-[88px]" },
-  md: { width: 128, height: 46, className: "h-11 w-32" },
-  lg: { width: 200, height: 72, className: "h-[72px] w-[200px]" },
+  sm: { width: 160, height: 58, className: "h-12 w-[140px]" },
+  md: { width: 220, height: 80, className: "h-20 w-[196px]" },
+  lg: { width: 280, height: 100, className: "h-24 w-[240px]" },
 } as const;
 
 type BrandLogoProps = {
@@ -32,7 +32,7 @@ export function BrandLogo({
     <span
       className={cn(
         "inline-flex min-w-0 items-center",
-        stacked ? "flex-col gap-1.5" : "gap-2",
+        stacked ? "relative flex-col" : "-ml-1 gap-1.5",
         className,
       )}
     >
@@ -41,16 +41,24 @@ export function BrandLogo({
         alt=""
         width={dim.width}
         height={dim.height}
-        className={cn("object-contain object-center mix-blend-multiply", dim.className)}
+        className={cn(
+          "object-contain object-center mix-blend-multiply",
+          dim.className,
+          stacked && "relative z-0",
+        )}
         priority={priority}
       />
       {showWordmark && (
         <span
           className={cn(
-            "font-semibold uppercase text-primary tracking-[0.18em]",
+            "relative z-10 font-bold uppercase text-primary",
             stacked ? "text-center" : "truncate",
-            size === "lg" ? "text-base tracking-[0.22em]" : "text-sm",
-            size === "sm" && "text-xs tracking-[0.16em]",
+            size === "lg" && "text-lg tracking-[0.2em] -mt-5",
+            size === "md" && (stacked ? "text-[15px] tracking-[0.2em] -mt-4" : "text-sm tracking-[0.18em]"),
+            size === "sm" &&
+              (stacked
+                ? "text-[11px] tracking-[0.2em] -mt-3"
+                : "text-xs tracking-[0.16em]"),
           )}
         >
           {wordmark}

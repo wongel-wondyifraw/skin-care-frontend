@@ -42,8 +42,8 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => void }) {
   return (
     <>
       <aside className="hidden lg:flex flex-col w-56 min-w-[224px] bg-card border-r border-border sticky top-0 h-screen">
-        <div className="px-4 pt-6 pb-4">
-          <BrandLogo href="/admin/dashboard" size="md" stacked className="w-full" />
+        <div className="px-3 pt-5 pb-2">
+          <BrandLogo href="/admin/dashboard" size="md" stacked priority className="w-full" />
         </div>
 
         <Separator />
