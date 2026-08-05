@@ -9,6 +9,7 @@ import { pageTitleForPath } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ConfirmModal from "./ConfirmModal";
+import { BrandLogo } from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
 
 export default function TopBar({
@@ -50,9 +51,7 @@ export default function TopBar({
 
       {/* Mobile */}
       <header className="flex lg:hidden items-center justify-between px-4 h-12 bg-card border-b border-border sticky top-0 z-10">
-        <span className="text-sm font-semibold text-primary tracking-widest uppercase">
-          Medaf
-        </span>
+        <BrandLogo href="/admin/dashboard" size="sm" />
         <div className="flex items-center gap-1.5">
           {adminName && (
             <span className="text-xs text-muted-foreground max-w-[72px] truncate">

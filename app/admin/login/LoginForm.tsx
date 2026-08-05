@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
 
@@ -74,10 +75,9 @@ export default function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-xl font-semibold text-primary tracking-[0.2em] uppercase">
-            Medaf Skin Care
-          </h1>
+        <div className="mb-8 flex flex-col items-center">
+          <h1 className="sr-only">Medaf Skin Care</h1>
+          <BrandLogo size="lg" stacked wordmark="Medaf Skin Care" priority />
         </div>
 
         <Card>

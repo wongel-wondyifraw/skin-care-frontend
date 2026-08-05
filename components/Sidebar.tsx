@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { isNavActive } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { BrandLogo } from "@/components/BrandLogo";
 import ConfirmModal from "./ConfirmModal";
 
 export const navItems = [
@@ -41,10 +42,8 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => void }) {
   return (
     <>
       <aside className="hidden lg:flex flex-col w-56 min-w-[224px] bg-card border-r border-border sticky top-0 h-screen">
-        <div className="px-5 pt-7 pb-5">
-          <span className="uppercase text-sm font-semibold text-primary tracking-[0.18em]">
-            Medaf
-          </span>
+        <div className="px-4 pt-6 pb-4">
+          <BrandLogo href="/admin/dashboard" size="md" stacked className="w-full" />
         </div>
 
         <Separator />
