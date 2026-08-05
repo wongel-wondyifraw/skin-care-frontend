@@ -29,6 +29,14 @@ export class ApiError extends Error {
   }
 }
 
+export function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = "name" in error ? String((error as { name?: unknown }).name) : "";
+  if (name === "AbortError") return true;
+  if (error instanceof Error && /aborted/i.test(error.message)) return true;
+  return false;
+}
+
 export function isNetworkError(error: unknown): boolean {
   if (typeof navigator !== "undefined" && !navigator.onLine) return true;
   if (error instanceof ApiError) {

@@ -10,6 +10,7 @@ import { productSkinLabels } from "./types";
 type ProductTileProps = {
   prod: Product;
   deletingId: string | null;
+  priority?: boolean;
   onRestock: (p: Product) => void;
   onEdit: (p: Product) => void;
   onDelete: (p: Product) => void;
@@ -18,6 +19,7 @@ type ProductTileProps = {
 export function ProductTile({
   prod,
   deletingId,
+  priority = false,
   onRestock,
   onEdit,
   onDelete,
@@ -34,6 +36,7 @@ export function ProductTile({
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          priority={priority}
         />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
         <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1">

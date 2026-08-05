@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Phone, User } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { ArrowLeft, Send, Phone, Sparkles } from "lucide-react";
+import { apiFetch, apiFetchCached } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,9 +89,10 @@ export default function ScanDetailPage() {
 
     (async () => {
       try {
-        const data = await apiFetch<SkinAnalysisDetail>(`/skin-analyses/${id}`, {
-          toastOnError: false,
-        });
+        const data = await apiFetchCached<SkinAnalysisDetail>(
+          `/skin-analyses/${id}`,
+          20_000,
+        );
         if (cancelled) return;
         setScan(data);
         await loadMessages(data.customerId);
@@ -123,7 +124,7 @@ export default function ScanDetailPage() {
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, scan?.id]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -150,9 +151,9 @@ export default function ScanDetailPage() {
     return (
       <div className="space-y-4" aria-busy="true">
         <Skeleton className="h-8 w-40" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="aspect-square w-full rounded-xl" />
-          <Skeleton className="h-72 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-96 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -175,7 +176,7 @@ export default function ScanDetailPage() {
   const customer = scan.customer;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
         <Link href="/admin/scans">
           <ArrowLeft className="size-4" />
@@ -183,26 +184,38 @@ export default function ScanDetailPage() {
         </Link>
       </Button>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <div className="space-y-4">
-          <ProductImagePreview src={scan.imageUrl} alt="Face scan" variant="hero" />
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 items-start">
+        <aside className="space-y-3 lg:sticky lg:top-4">
+          <div className="w-40 sm:w-48 lg:w-full max-w-[220px]">
+            <ProductImagePreview
+              src={scan.imageUrl}
+              alt={`Scan of ${customer.fullName}`}
+              variant="hero"
+              className="rounded-xl overflow-hidden"
+            />
+          </div>
           <Card>
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <User className="size-4 text-primary" />
-                <h1 className="text-lg font-semibold tracking-tight">{customer.fullName}</h1>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {customer.telegramUsername ? `@${customer.telegramUsername.replace(/^@/, "")}` : `Telegram ID ${customer.telegramId}`}
+            <CardContent className="p-3 space-y-1.5">
+              <h1 className="text-base font-semibold tracking-tight leading-snug">
+                {customer.fullName}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {customer.telegramUsername
+                  ? `@${customer.telegramUsername.replace(/^@/, "")}`
+                  : `ID ${customer.telegramId}`}
               </p>
-              <p className="text-sm">{customer.phone}</p>
-              <p className="text-sm text-muted-foreground">{customer.address}</p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Badge variant="secondary">{customer.skinType?.name ?? "Skin type not set"}</Badge>
-                <Badge variant="outline">{formatDateTime(scan.createdAt)}</Badge>
+              <p className="text-xs">{customer.phone}</p>
+              <p className="text-xs text-muted-foreground line-clamp-3">{customer.address}</p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <Badge variant="secondary" className="text-[10px]">
+                  {customer.skinType?.name ?? "Skin type not set"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {formatDateTime(scan.createdAt)}
+                </Badge>
               </div>
               {customer.phone && (
-                <Button asChild size="sm" variant="outline" className="mt-2">
+                <Button asChild size="sm" variant="outline" className="mt-1 h-8 w-full">
                   <a href={`tel:${customer.phone.replace(/[^\d+]/g, "")}`}>
                     <Phone className="size-3.5" />
                     Call
@@ -211,23 +224,17 @@ export default function ScanDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          <div>
-            <h2 className="text-sm font-semibold mb-2">Recommendation</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-              {scan.adviceText}
-            </p>
-          </div>
-
           {scan.mentionedProducts?.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold mb-2">Mentioned products</h2>
-              <ul className="space-y-2">
+              <h2 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">
+                Products
+              </h2>
+              <ul className="space-y-1">
                 {scan.mentionedProducts.map((p) => (
                   <li key={p.id}>
                     <Link
                       href={`/admin/products/${p.id}`}
-                      className="text-sm text-primary no-underline hover:underline"
+                      className="text-xs text-primary no-underline hover:underline"
                     >
                       {p.name}
                       {p.price != null ? ` · ${formatMoney(Number(p.price))}` : ""}
@@ -237,29 +244,35 @@ export default function ScanDetailPage() {
               </ul>
             </div>
           )}
-        </div>
+        </aside>
 
-        <Card className="flex flex-col min-h-[420px] max-h-[70vh]">
+        <Card className="flex flex-col h-[min(72vh,720px)] min-h-[420px]">
           <CardContent className="p-0 flex flex-col flex-1 min-h-0">
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="text-sm font-semibold">Message via bot</h2>
+            <div className="px-4 py-3 border-b border-border shrink-0">
+              <h2 className="text-sm font-semibold">Conversation</h2>
               <p className="text-xs text-muted-foreground">
-                Sends a Telegram message to this customer.
+                Scan recommendation and Telegram messages in one thread.
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-              {messages.length === 0 && (
-                <p className="text-xs text-muted-foreground py-8 text-center">
-                  No messages yet. Send the first note below.
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              <div className="mr-6 rounded-xl border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm">
+                <p className="text-[11px] font-medium text-primary mb-1.5 flex items-center gap-1">
+                  <Sparkles className="size-3.5" />
+                  Scan recommendation · {formatDateTime(scan.createdAt)}
                 </p>
-              )}
+                <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+                  {scan.adviceText}
+                </p>
+              </div>
+
               {messages.map((m) => (
                 <div
                   key={m.id}
                   className={
                     m.direction === "outbound"
-                      ? "ml-8 rounded-lg bg-primary/10 px-3 py-2 text-sm"
-                      : "mr-8 rounded-lg bg-muted px-3 py-2 text-sm"
+                      ? "ml-8 rounded-xl bg-primary/10 px-3 py-2 text-sm"
+                      : "mr-8 rounded-xl bg-muted px-3 py-2 text-sm"
                   }
                 >
                   <p className="text-[11px] text-muted-foreground mb-0.5">
@@ -273,12 +286,13 @@ export default function ScanDetailPage() {
               ))}
               <div ref={threadEndRef} />
             </div>
-            <form onSubmit={sendMessage} className="border-t border-border p-3 flex gap-2">
+
+            <form onSubmit={sendMessage} className="border-t border-border p-3 flex gap-2 shrink-0">
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={2}
-                placeholder="Write a message…"
+                placeholder="Reply to customer via Telegram…"
                 className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               <Button type="submit" disabled={sending || !draft.trim()} className="self-end">

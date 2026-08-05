@@ -11,7 +11,7 @@ import { OrderStatusIndicator, type OrderStatus } from "@/components/OrderStatus
 import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
-import { isNetworkError } from "@/lib/errors";
+import { isAbortError, isNetworkError } from "@/lib/errors";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
@@ -73,7 +73,7 @@ export default function OrdersPage() {
   }, [search, statusFilter]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setFetchError(null);
 
@@ -88,26 +88,26 @@ export default function OrdersPage() {
       try {
         const data = await apiFetch<PaginatedResponse<Order>>(`/orders?${params.toString()}`, {
           toastOnError: false,
+          signal: controller.signal,
         });
-        if (!cancelled) {
-          setOrders(data.items);
-          setTotal(data.total);
-          clearNetworkError();
-        }
+        if (controller.signal.aborted) return;
+        setOrders(data.items);
+        setTotal(data.total);
+        clearNetworkError();
       } catch (err: unknown) {
-        if (cancelled) return;
+        if (controller.signal.aborted || isAbortError(err)) return;
         if (isNetworkError(err)) {
           reportNetworkError(err);
           return;
         }
         setFetchError(err instanceof Error ? err.message : "Failed to load orders.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [page, search, statusFilter, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
 
@@ -142,6 +142,7 @@ export default function OrdersPage() {
     try {
       await apiFetch(`/orders/${deleteTarget.id}`, { method: "DELETE" });
       invalidateApiCache("/orders");
+      invalidateApiCache("/products");
       invalidateApiCache("/dashboard-summary");
       toast.success("Order deleted");
       setDeleteTarget(null);

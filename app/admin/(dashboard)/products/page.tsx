@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationBar } from "@/components/PaginationBar";
 import { useToast } from "@/components/ToastProvider";
 import { useNetwork } from "@/components/NetworkProvider";
-import { ApiError, isNetworkError } from "@/lib/errors";
+import { ApiError, isAbortError, isNetworkError } from "@/lib/errors";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
 import {
@@ -134,7 +134,7 @@ function ProductsPageContent() {
   }, [reconnectKey, clearNetworkError, reportNetworkError]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setListLoading(true);
     setFetchError(null);
 
@@ -152,25 +152,26 @@ function ProductsPageContent() {
       try {
         const data = await apiFetch<PaginatedResponse<Product>>(`/products?${params.toString()}`, {
           toastOnError: false,
+          signal: controller.signal,
         });
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setProducts(data.items);
         setTotal(data.total);
         clearNetworkError();
       } catch (err: unknown) {
-        if (cancelled) return;
+        if (controller.signal.aborted || isAbortError(err)) return;
         if (isNetworkError(err)) {
           reportNetworkError(err);
           return;
         }
         setFetchError(err instanceof Error ? err.message : "Failed to load products.");
       } finally {
-        if (!cancelled) setListLoading(false);
+        if (!controller.signal.aborted) setListLoading(false);
       }
     })();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [
     page,
@@ -312,6 +313,7 @@ function ProductsPageContent() {
         }),
       });
       invalidateApiCache("/dashboard-summary");
+      invalidateApiCache("/products");
       toast.success("Product created");
       closeCreate();
       setPage(1);
@@ -350,6 +352,8 @@ function ProductsPageContent() {
         toastOnError: false,
         body: JSON.stringify({ quantity: qty }),
       });
+      invalidateApiCache("/products");
+      invalidateApiCache("/dashboard-summary");
       toast.success("Stock updated", `Added ${qty} units to ${restockTarget.name}.`);
       setRestockTarget(null);
       setRefreshKey((prev) => prev + 1);
@@ -435,6 +439,7 @@ function ProductsPageContent() {
           skinTypeIds: editForm.skinTypeIds,
         }),
       });
+      invalidateApiCache("/products");
       closeEdit();
       setRefreshKey((prev) => prev + 1);
     } catch (err: unknown) {
@@ -451,6 +456,7 @@ function ProductsPageContent() {
     try {
       await apiFetch(`/products/${deleteTarget.id}`, { method: "DELETE" });
       invalidateApiCache("/dashboard-summary");
+      invalidateApiCache("/products");
       setDeleteTarget(null);
       if (products.length === 1 && page > 1) setPage((prev) => prev - 1);
       else setRefreshKey((prev) => prev + 1);
@@ -691,11 +697,12 @@ function ProductsPageContent() {
         <>
           {viewMode === "tiles" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
-              {products.map((prod) => (
+              {products.map((prod, index) => (
                 <ProductTile
                   key={prod.id}
                   prod={prod}
                   deletingId={deletingId}
+                  priority={index < 4}
                   onRestock={openRestock}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}

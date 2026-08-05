@@ -1,4 +1,4 @@
-import { ApiError, isNetworkError, sanitizeErrorMessage } from "@/lib/errors";
+import { ApiError, isAbortError, isNetworkError, sanitizeErrorMessage } from "@/lib/errors";
 import { getToast } from "@/components/ToastProvider";
 import { notifyNetworkLoss } from "@/components/NetworkProvider";
 import { clearAdminSession } from "@/lib/session";
@@ -68,6 +68,11 @@ export async function apiFetch<T>(
       },
     });
   } catch (cause) {
+    if (isAbortError(cause) || fetchOptions.signal?.aborted) {
+      throw cause instanceof Error
+        ? cause
+        : new DOMException("Aborted", "AbortError");
+    }
     const err = new ApiError(
       "Connection lost. Trying to reconnect…",
       0,

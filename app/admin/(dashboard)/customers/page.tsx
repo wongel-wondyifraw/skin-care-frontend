@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
-import { isNetworkError } from "@/lib/errors";
+import { isAbortError, isNetworkError } from "@/lib/errors";
 import { formatDate } from "@/lib/format";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
@@ -102,7 +102,7 @@ export default function CustomersPage() {
   const search = useDebouncedValue(searchInput, 300);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setFetchError(null);
 
@@ -116,24 +116,26 @@ export default function CustomersPage() {
       try {
         const data = await apiFetch<PaginatedResponse<Customer>>(`/customers?${params.toString()}`, {
           toastOnError: false,
+          signal: controller.signal,
         });
-        if (!cancelled) {
-          setCustomers(data.items);
-          setTotal(data.total);
-          clearNetworkError();
-        }
+        if (controller.signal.aborted) return;
+        setCustomers(data.items);
+        setTotal(data.total);
+        clearNetworkError();
       } catch (err: unknown) {
-        if (cancelled) return;
+        if (controller.signal.aborted || isAbortError(err)) return;
         if (isNetworkError(err)) {
           reportNetworkError(err);
           return;
         }
         setFetchError(err instanceof Error ? err.message : "Failed to load customers.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      controller.abort();
+    };
   }, [page, pageSize, search, reconnectKey, refreshKey, clearNetworkError, reportNetworkError]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

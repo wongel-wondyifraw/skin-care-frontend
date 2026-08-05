@@ -13,7 +13,7 @@ import {
   Banknote,
   Pencil,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetchCached } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,9 +90,7 @@ export default function ProductDetailPage() {
 
     (async () => {
       try {
-        const data = await apiFetch<Product>(`/products/${id}`, {
-          toastOnError: false,
-        });
+        const data = await apiFetchCached<Product>(`/products/${id}`, 20_000);
         if (cancelled) return;
         setProduct(data);
         clearNetworkError();
