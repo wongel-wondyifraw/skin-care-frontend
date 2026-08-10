@@ -16,6 +16,9 @@ import type { PaginatedResponse } from "@/lib/types/pagination";
 
 type RefItem = { id: string; name: string };
 
+/** After 3 rows on the 2-column Telegram layout (6 tiles). */
+const BANNER_AFTER = 6;
+
 export default function ShopCatalogPage() {
   const router = useRouter();
   const { status, error: authError, retry } = useShopAuth();
@@ -173,7 +176,6 @@ export default function ShopCatalogPage() {
   if (status === "loading") {
     return (
       <div className="space-y-4" aria-busy="true">
-        <Skeleton className="h-[210px] w-full rounded-2xl" />
         <Skeleton className="h-8 w-full max-w-sm" />
         <div className="grid grid-cols-2 gap-2.5">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -201,8 +203,6 @@ export default function ShopCatalogPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <ShopTrendingBanner products={trendingPool} loading={trendingLoading} />
-
       <div className="mb-3">
         <h1 className="text-lg font-semibold tracking-tight">Shop</h1>
         <p className="text-xs text-muted-foreground">
@@ -243,11 +243,27 @@ export default function ShopCatalogPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {products.map((prod, index) => (
+            {products.slice(0, BANNER_AFTER).map((prod, index) => (
               <ShopProductTile
                 key={prod.id}
                 prod={prod}
                 priority={index < 4}
+                onAddToCart={handleAddToCart}
+                onOrderNow={handleOrderNow}
+              />
+            ))}
+
+            <div className="col-span-2 sm:col-span-3">
+              <ShopTrendingBanner
+                products={trendingPool}
+                loading={trendingLoading}
+              />
+            </div>
+
+            {products.slice(BANNER_AFTER).map((prod) => (
+              <ShopProductTile
+                key={prod.id}
+                prod={prod}
                 onAddToCart={handleAddToCart}
                 onOrderNow={handleOrderNow}
               />
