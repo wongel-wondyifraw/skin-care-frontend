@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney } from "@/lib/format";
+import { ShopPrice } from "@/components/shop/ShopPrice";
 
 export type ShopProduct = {
   id: string;
@@ -18,6 +18,7 @@ export type ShopProduct = {
   skinTypes?: { id: string; name: string }[];
   stock: number;
   price: number;
+  discountPercent?: number;
 };
 
 function skinLabels(prod: ShopProduct) {
@@ -63,9 +64,7 @@ function ShopProductTileComponent({
           </div>
         )}
         <div className="absolute bottom-2 left-2 right-2">
-          <p className="text-[11px] font-semibold text-white drop-shadow-sm line-clamp-1">
-            {prod.price != null ? formatMoney(Number(prod.price)) : ""}
-          </p>
+          <ShopPrice item={prod} light />
         </div>
       </Link>
 

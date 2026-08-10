@@ -16,8 +16,8 @@ import type { PaginatedResponse } from "@/lib/types/pagination";
 
 type RefItem = { id: string; name: string };
 
-/** After 3 rows on the 2-column Telegram layout (6 tiles). */
-const BANNER_AFTER = 6;
+/** After 2 rows on the 2-column Telegram layout (4 tiles). */
+const BANNER_AFTER = 4;
 
 export default function ShopCatalogPage() {
   const router = useRouter();
@@ -71,11 +71,11 @@ export default function ShopCatalogPage() {
     setTrendingLoading(true);
     (async () => {
       try {
-        const data = await shopFetchCached<PaginatedResponse<ShopProduct>>(
-          "/shop/products?page=1&pageSize=24&sort=recent&stock=in_stock",
+        const items = await shopFetchCached<ShopProduct[]>(
+          "/shop/trending",
           60_000,
         );
-        if (!cancelled) setTrendingPool(data.items);
+        if (!cancelled) setTrendingPool(items);
       } catch {
         if (!cancelled) setTrendingPool([]);
       } finally {
@@ -156,6 +156,7 @@ export default function ShopCatalogPage() {
         brand: prod.brand,
         image: prod.image,
         price: Number(prod.price) || 0,
+        discountPercent: Number(prod.discountPercent) || 0,
         stock: prod.stock,
       });
       setCartFlashId(prod.id);

@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
+import { ShopPrice } from "@/components/shop/ShopPrice";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
-import { formatMoney } from "@/lib/format";
 
 export default function ShopProductDetailPage() {
   const params = useParams();
@@ -57,6 +57,7 @@ export default function ShopProductDetailPage() {
       brand: product.brand,
       image: product.image,
       price: Number(product.price) || 0,
+      discountPercent: Number(product.discountPercent) || 0,
       stock: product.stock,
     });
     setAdded(true);
@@ -145,9 +146,7 @@ export default function ShopProductDetailPage() {
           </p>
         )}
         <h1 className="text-xl font-semibold tracking-tight">{product.name}</h1>
-        <p className="text-lg font-semibold text-primary">
-          {formatMoney(Number(product.price))}
-        </p>
+        <ShopPrice item={product} size="md" />
         <div className="flex flex-wrap gap-1.5">
           {product.category?.name && (
             <Badge variant="secondary">{product.category.name}</Badge>

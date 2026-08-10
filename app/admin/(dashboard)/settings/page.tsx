@@ -15,6 +15,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
+import {
+  ShopBannerSettingsCard,
+  ShopDiscountSettingsCard,
+} from "./ShopSettingsPanels";
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "A";
@@ -260,7 +265,9 @@ export default function SettingsPage() {
       <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">Manage your profile and admin accounts.</p>
+          <p className="text-sm text-muted-foreground">
+            Profile, shop banner, discounts, and admin accounts.
+          </p>
         </div>
         <Button
           onClick={() => setAddAdminOpen(true)}
@@ -275,11 +282,21 @@ export default function SettingsPage() {
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="shop">Shop banner</TabsTrigger>
+            <TabsTrigger value="discounts">Discounts</TabsTrigger>
             <TabsTrigger value="add-admin">Add Admin</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
             <ProfileCard />
+          </TabsContent>
+
+          <TabsContent value="shop">
+            <ShopBannerSettingsCard />
+          </TabsContent>
+
+          <TabsContent value="discounts">
+            <ShopDiscountSettingsCard />
           </TabsContent>
 
           <TabsContent value="add-admin">
@@ -296,8 +313,10 @@ export default function SettingsPage() {
         </Tabs>
       </div>
 
-      <div className="lg:hidden">
+      <div className="lg:hidden space-y-6">
         <ProfileCard />
+        <ShopBannerSettingsCard />
+        <ShopDiscountSettingsCard />
       </div>
 
       <Dialog open={addAdminOpen} onOpenChange={setAddAdminOpen}>

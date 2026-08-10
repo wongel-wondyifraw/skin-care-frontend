@@ -22,6 +22,7 @@ export interface Product {
   skinTypes?: SkinType[];
   stock: number;
   price: number;
+  discountPercent?: number;
   createdAt: string;
 }
 

@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ShopPrice } from "@/components/shop/ShopPrice";
 import { shopCreateOrders, ShopApiError } from "@/lib/shop-api";
 import { formatMoney } from "@/lib/format";
+import { shopSalePrice } from "@/lib/shop-pricing";
 
 type CheckoutLine = {
   productId: string;
   name: string;
   quantity: number;
   price: number;
+  discountPercent?: number;
 };
 
 type ShopCheckoutFormProps = {
@@ -36,7 +39,7 @@ export function ShopCheckoutForm({
   }, [defaultAddress]);
 
   const total = lines.reduce(
-    (sum, line) => sum + line.price * line.quantity,
+    (sum, line) => sum + shopSalePrice(line) * line.quantity,
     0,
   );
 
@@ -75,24 +78,31 @@ export function ShopCheckoutForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <ul className="space-y-1.5 text-sm">
-        {lines.map((line) => (
-          <li
-            key={line.productId}
-            className="flex items-start justify-between gap-3"
-          >
-            <span className="min-w-0">
-              <span className="font-medium text-foreground line-clamp-1">
-                {line.name}
+        {lines.map((line) => {
+          const unit = shopSalePrice(line);
+          return (
+            <li
+              key={line.productId}
+              className="flex items-start justify-between gap-3"
+            >
+              <span className="min-w-0">
+                <span className="font-medium text-foreground line-clamp-1">
+                  {line.name}
+                </span>
+                <span className="mt-0.5 block">
+                  <ShopPrice item={line} />
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    · Qty {line.quantity}
+                  </span>
+                </span>
               </span>
-              <span className="block text-xs text-muted-foreground">
-                Qty {line.quantity} · {formatMoney(line.price)} each
+              <span className="shrink-0 font-medium">
+                {formatMoney(unit * line.quantity)}
               </span>
-            </span>
-            <span className="shrink-0 font-medium">
-              {formatMoney(line.price * line.quantity)}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">

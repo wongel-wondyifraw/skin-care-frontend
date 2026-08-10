@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
+import { ShopPrice } from "@/components/shop/ShopPrice";
 import { formatMoney } from "@/lib/format";
+import { shopSalePrice } from "@/lib/shop-pricing";
 
 export default function ShopCartPage() {
   const { status, error: authError, retry, customer } = useShopAuth();
@@ -77,8 +79,9 @@ export default function ShopCartPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold line-clamp-2">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatMoney(item.price)}
+                  <ShopPrice item={item} />
+                  <p className="text-[10px] text-muted-foreground">
+                    Line {formatMoney(shopSalePrice(item) * item.quantity)}
                   </p>
                 </div>
                 <button
@@ -132,6 +135,7 @@ export default function ShopCartPage() {
             name: item.name,
             quantity: item.quantity,
             price: item.price,
+            discountPercent: item.discountPercent,
           }))}
           defaultAddress={customer?.address}
           onSuccess={clear}

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { shopSalePrice } from "@/lib/shop-pricing";
 
 const CART_KEY = "shopCart";
 
@@ -18,6 +19,7 @@ export type CartItem = {
   brand?: string | null;
   image: string;
   price: number;
+  discountPercent?: number;
   stock: number;
   quantity: number;
 };
@@ -127,7 +129,11 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
     [items],
   );
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    () =>
+      items.reduce(
+        (sum, item) => sum + shopSalePrice(item) * item.quantity,
+        0,
+      ),
     [items],
   );
 
