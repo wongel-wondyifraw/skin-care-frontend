@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClipboardList, ShoppingCart } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 
@@ -52,11 +53,7 @@ export function ShopHeader() {
             </Avatar>
           </>
         ) : (
-          <Avatar size="sm" className="size-8">
-            <AvatarFallback className="bg-muted text-muted-foreground text-[11px]">
-              …
-            </AvatarFallback>
-          </Avatar>
+          <Skeleton className="size-8 shrink-0 rounded-full" aria-hidden />
         )}
       </div>
     </header>

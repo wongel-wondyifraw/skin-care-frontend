@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
+import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
@@ -21,6 +22,9 @@ export default function CheckoutClient() {
   const [product, setProduct] = useState<ShopProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const backHref = productId ? `/shop/${productId}` : "/shop";
+  const backLabel = productId ? "Product" : "Catalog";
 
   useEffect(() => {
     if (status !== "ready" || !productId) {
@@ -55,9 +59,13 @@ export default function CheckoutClient() {
 
   if (status === "loading" || (status === "ready" && loading)) {
     return (
-      <div className="mx-auto max-w-lg space-y-3" aria-busy="true">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
+      <div className="mx-auto max-w-lg space-y-4" aria-busy="true">
+        <Skeleton className="h-8 w-24" />
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-3 w-64 max-w-full" />
+        </div>
+        <Skeleton className="h-44 w-full rounded-2xl" />
       </div>
     );
   }
@@ -76,26 +84,32 @@ export default function CheckoutClient() {
 
   if (!productId || error || !product) {
     return (
-      <div className="mx-auto max-w-md space-y-3 text-center">
-        <p className="text-sm text-destructive">
-          {error || "Choose a product to order."}
-        </p>
-        <Button asChild variant="outline">
-          <Link href="/shop">Back to catalog</Link>
-        </Button>
+      <div className="mx-auto max-w-lg space-y-4">
+        <ShopBackLink href="/shop" label="Catalog" />
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-destructive">
+            {error || "Choose a product to order."}
+          </p>
+          <Button asChild variant="outline">
+            <Link href="/shop">Back to catalog</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (product.stock <= 0) {
     return (
-      <div className="mx-auto max-w-md space-y-3 text-center">
-        <p className="text-sm text-muted-foreground">
-          This product is currently unavailable.
-        </p>
-        <Button asChild variant="outline">
-          <Link href="/shop">Back to catalog</Link>
-        </Button>
+      <div className="mx-auto max-w-lg space-y-4">
+        <ShopBackLink href={backHref} label={backLabel} />
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            This product is currently unavailable.
+          </p>
+          <Button asChild variant="outline">
+            <Link href="/shop">Back to catalog</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -104,6 +118,7 @@ export default function CheckoutClient() {
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
+      <ShopBackLink href={backHref} label={backLabel} />
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Order</h1>
         <p className="text-xs text-muted-foreground">

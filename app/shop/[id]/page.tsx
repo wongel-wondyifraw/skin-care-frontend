@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,8 @@ import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
+import { ShopBackLink } from "@/components/shop/ShopBackLink";
+import { ShopProductDescription } from "@/components/shop/ShopProductDescription";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
 import { activeDiscountPercent } from "@/lib/shop-pricing";
 
@@ -80,6 +81,7 @@ export default function ShopProductDetailPage() {
         <Skeleton className="aspect-square w-full rounded-2xl" />
         <Skeleton className="h-6 w-2/3" />
         <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-24 w-full" />
       </div>
     );
   }
@@ -113,86 +115,87 @@ export default function ShopProductDetailPage() {
       : product.skinType?.name
         ? [product.skinType.name]
         : ["All"];
+  const out = product.stock <= 0;
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-4">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 gap-1.5 text-muted-foreground">
-        <Link href="/shop">
-          <ArrowLeft className="size-3.5" />
-          Catalog
-        </Link>
-      </Button>
+    <div className="relative mx-auto w-full max-w-lg">
+      <div className="space-y-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
+        <ShopBackLink href="/shop" label="Catalog" />
 
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 640px) 100vw, 512px"
-          priority
-        />
-        {product.stock <= 0 && (
-          <div className="absolute top-3 left-3 z-[1]">
-            <Badge variant="destructive" className="text-[11px]">
-              Out of stock
-            </Badge>
-          </div>
-        )}
-        <ShopSaleBadge
-          percent={activeDiscountPercent(
-            product.discountPercent,
-            product.discountEndsAt,
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 100vw, 512px"
+            priority
+          />
+          {out && (
+            <div className="absolute top-3 left-3 z-[1]">
+              <Badge variant="destructive" className="text-[11px]">
+                Out of stock
+              </Badge>
+            </div>
           )}
-          endsAt={product.discountEndsAt}
-        />
-      </div>
-
-      <div className="space-y-2">
-        {product.brand?.trim() && (
-          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            {product.brand.trim()}
-          </p>
-        )}
-        <h1 className="text-xl font-semibold tracking-tight">{product.name}</h1>
-        <ShopPrice item={product} size="md" hideBadge />
-        <div className="flex flex-wrap gap-1.5">
-          {product.category?.name && (
-            <Badge variant="secondary">{product.category.name}</Badge>
-          )}
-          {skins.map((name) => (
-            <Badge key={name} variant="outline">
-              {name}
-            </Badge>
-          ))}
+          <ShopSaleBadge
+            percent={activeDiscountPercent(
+              product.discountPercent,
+              product.discountEndsAt,
+            )}
+            endsAt={product.discountEndsAt}
+          />
         </div>
+
+        <div className="space-y-2.5">
+          {product.brand?.trim() && (
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              {product.brand.trim()}
+            </p>
+          )}
+          <h1 className="text-xl font-semibold tracking-tight text-balance">
+            {product.name}
+          </h1>
+          <ShopPrice item={product} size="md" hideBadge />
+          <div className="flex flex-wrap gap-1.5">
+            {product.category?.name && (
+              <Badge variant="secondary">{product.category.name}</Badge>
+            )}
+            {skins.map((name) => (
+              <Badge key={name} variant="outline">
+                {name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
         {product.description?.trim() && (
-          <p className="text-sm text-muted-foreground leading-relaxed pt-1">
-            {product.description.trim()}
-          </p>
+          <ShopProductDescription text={product.description} />
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={product.stock <= 0}
-          onClick={handleAddToCart}
-        >
-          {product.stock <= 0
-            ? "Unavailable"
-            : added
-              ? "Added"
-              : "Add to cart"}
-        </Button>
-        <Button
-          type="button"
-          disabled={product.stock <= 0}
-          onClick={handleOrderNow}
-        >
-          Order
-        </Button>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
+        <div className="pointer-events-auto border-t border-border/80 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/85">
+          <div className="mx-auto grid max-w-lg grid-cols-2 gap-2 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={out}
+              onClick={handleAddToCart}
+            >
+              {out ? "Unavailable" : added ? "Added" : "Add to cart"}
+            </Button>
+            <Button
+              type="button"
+              className="h-11"
+              disabled={out}
+              onClick={handleOrderNow}
+            >
+              Order
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

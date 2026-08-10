@@ -4,8 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
+import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
 import { ShopPrice } from "@/components/shop/ShopPrice";
 import { formatMoney } from "@/lib/format";
@@ -16,7 +18,32 @@ export default function ShopCartPage() {
   const { items, setQuantity, removeItem, clear, subtotal } = useShopCart();
 
   if (status === "loading") {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <div className="mx-auto w-full max-w-lg space-y-5" aria-busy="true">
+        <Skeleton className="h-8 w-24" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+          <Skeleton className="h-8 w-14" />
+        </div>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex gap-3 rounded-2xl border border-border bg-card p-2.5"
+          >
+            <Skeleton className="size-20 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2 py-0.5">
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-3 w-2/5" />
+              <Skeleton className="h-7 w-28" />
+            </div>
+          </div>
+        ))}
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      </div>
+    );
   }
 
   if (status === "error") {
@@ -33,20 +60,24 @@ export default function ShopCartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-md space-y-3 text-center py-10">
-        <h1 className="text-lg font-semibold">Your cart is empty</h1>
-        <p className="text-sm text-muted-foreground">
-          Add products from the catalog, then place one order for everything.
-        </p>
-        <Button asChild>
-          <Link href="/shop">Browse products</Link>
-        </Button>
+      <div className="mx-auto max-w-lg space-y-4">
+        <ShopBackLink href="/shop" label="Catalog" />
+        <div className="space-y-3 text-center py-6">
+          <h1 className="text-lg font-semibold">Your cart is empty</h1>
+          <p className="text-sm text-muted-foreground">
+            Add products from the catalog, then place one order for everything.
+          </p>
+          <Button asChild>
+            <Link href="/shop">Browse products</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-5">
+      <ShopBackLink href="/shop" label="Catalog" />
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Cart</h1>

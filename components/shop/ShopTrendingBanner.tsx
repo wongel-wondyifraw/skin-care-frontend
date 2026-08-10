@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
+import { Skeleton } from "@/components/ui/skeleton";
 import { activeDiscountPercent } from "@/lib/shop-pricing";
 
 function productPitch(product: ShopProduct): string {
@@ -66,8 +67,9 @@ export function ShopTrendingBanner({
 
   if (loading) {
     return (
-      <div
-        className={`h-[132px] animate-pulse rounded-2xl bg-muted sm:h-[148px] ${className}`}
+      <Skeleton
+        className={`h-[132px] w-full rounded-2xl sm:h-[148px] ${className}`}
+        aria-busy="true"
       />
     );
   }

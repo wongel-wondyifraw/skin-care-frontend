@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
+import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import {
   shopFetchOrders,
   ShopApiError,
@@ -72,7 +73,8 @@ export default function ShopOrdersPage() {
 
   if (status === "loading") {
     return (
-      <div className="space-y-3" aria-busy="true">
+      <div className="mx-auto w-full max-w-lg space-y-3" aria-busy="true">
+        <Skeleton className="h-8 w-24" />
         <Skeleton className="h-7 w-36" />
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-24 w-full rounded-2xl" />
@@ -94,6 +96,7 @@ export default function ShopOrdersPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
+      <ShopBackLink href="/shop" label="Catalog" />
       <div>
         <h1 className="text-lg font-semibold tracking-tight">My orders</h1>
         <p className="text-xs text-muted-foreground">

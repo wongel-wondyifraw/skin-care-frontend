@@ -34,6 +34,7 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
 import { formatMoney } from "@/lib/format";
 import { formatCountdown } from "@/lib/shop-pricing";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 type SectionId = "profile" | "banner" | "discounts" | "team";
@@ -492,7 +493,36 @@ function BannerSection() {
       }
     >
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading catalog…</p>
+        <div className="grid gap-6 lg:grid-cols-2" aria-busy="true">
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-28" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border border-border p-2.5"
+              >
+                <Skeleton className="size-6 shrink-0 rounded-full" />
+                <Skeleton className="size-12 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-3 w-2/5" />
+                </div>
+                <Skeleton className="size-8 shrink-0 rounded-md" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <div className="max-h-72 space-y-1 overflow-hidden rounded-xl border border-border p-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg px-2 py-2">
+                  <Skeleton className="size-10 shrink-0 rounded-lg" />
+                  <Skeleton className="h-4 flex-1" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-3">
@@ -639,6 +669,7 @@ function DiscountsSection() {
   const debouncedSearch = useDebouncedValue(search, 250);
   const [busy, setBusy] = useState(false);
   const [loadingDeals, setLoadingDeals] = useState(true);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
 
   const loadCatalog = useCallback(async (q: string) => {
     const params = new URLSearchParams({
@@ -668,7 +699,10 @@ function DiscountsSection() {
   }, [toast]);
 
   useEffect(() => {
-    void loadCatalog("").catch((err) => toast.error(err));
+    setLoadingCatalog(true);
+    void loadCatalog("")
+      .catch((err) => toast.error(err))
+      .finally(() => setLoadingCatalog(false));
     void loadActiveDeals();
   }, [loadCatalog, loadActiveDeals, toast]);
 
@@ -756,7 +790,21 @@ function DiscountsSection() {
         }
       >
         {loadingDeals ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <ul className="grid gap-2 sm:grid-cols-2" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-3 rounded-xl border border-border p-2.5"
+              >
+                <Skeleton className="size-12 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-3 w-2/5" />
+                </div>
+                <Skeleton className="h-8 w-14 shrink-0 rounded-md" />
+              </li>
+            ))}
+          </ul>
         ) : activeDeals.length === 0 ? (
           <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
             No active discounts yet.
@@ -822,45 +870,60 @@ function DiscountsSection() {
               />
             </div>
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
-              {catalog.map((p) => {
-                const on = selectedIds.includes(p.id);
-                const pct = Math.floor(Number(p.discountPercent) || 0);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggle(p.id)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
-                      on
-                        ? "bg-primary/10 ring-1 ring-primary/30"
-                        : "hover:bg-muted/70",
-                    )}
-                  >
-                    <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-                      <Image
-                        src={p.image}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="40px"
-                      />
+              {loadingCatalog ? (
+                <div className="space-y-1" aria-busy="true">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg px-2 py-2"
+                    >
+                      <Skeleton className="size-10 shrink-0 rounded-lg" />
+                      <Skeleton className="h-4 flex-1" />
+                      <Skeleton className="h-3 w-14" />
                     </div>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {p.name}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatMoney(Number(p.price) || 0)}
-                      {pct > 0 ? (
-                        <span className="ml-1.5 font-bold text-rose-700">
-                          −{pct}%
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                );
-              })}
+                  ))}
+                </div>
+              ) : (
+                catalog.map((p) => {
+                  const on = selectedIds.includes(p.id);
+                  const pct = Math.floor(Number(p.discountPercent) || 0);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggle(p.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
+                        on
+                          ? "bg-primary/10 ring-1 ring-primary/30"
+                          : "hover:bg-muted/70",
+                      )}
+                    >
+                      <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        <Image
+                          src={p.image}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                        />
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {p.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatMoney(Number(p.price) || 0)}
+                        {pct > 0 ? (
+                          <span className="ml-1.5 font-bold text-rose-700">
+                            −{pct}%
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {selectedIds.length} selected
