@@ -91,7 +91,7 @@ export default function CheckoutClient() {
     return (
       <div className="mx-auto max-w-md space-y-3 text-center">
         <p className="text-sm text-muted-foreground">
-          This product is out of stock.
+          This product is currently unavailable.
         </p>
         <Button asChild variant="outline">
           <Link href="/shop">Back to catalog</Link>

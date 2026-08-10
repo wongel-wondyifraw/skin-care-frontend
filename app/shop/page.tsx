@@ -7,11 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationBar } from "@/components/PaginationBar";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
-import {
-  ShopProductFilters,
-  type ShopSortMode,
-  type ShopStockFilter,
-} from "@/components/shop/ShopProductFilters";
+import { ShopProductFilters } from "@/components/shop/ShopProductFilters";
+import { ShopTrendingBanner } from "@/components/shop/ShopTrendingBanner";
 import { ShopProductTile, type ShopProduct } from "@/components/shop/ShopProductTile";
 import { shopFetchCached, ShopApiError } from "@/lib/shop-api";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -24,25 +21,25 @@ export default function ShopCatalogPage() {
   const { status, error: authError, retry } = useShopAuth();
   const { addItem } = useShopCart();
   const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [trendingPool, setTrendingPool] = useState<ShopProduct[]>([]);
   const [categories, setCategories] = useState<RefItem[]>([]);
   const [skinTypes, setSkinTypes] = useState<RefItem[]>([]);
   const [total, setTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
+  const [trendingLoading, setTrendingLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [cartFlashId, setCartFlashId] = useState<string | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterSkinType, setFilterSkinType] = useState("");
-  const [filterStock, setFilterStock] = useState<ShopStockFilter>("all");
-  const [sortMode, setSortMode] = useState<ShopSortMode>("name");
   const [page, setPage] = useState(1);
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterCategory, filterSkinType, filterStock, sortMode]);
+  }, [search, filterCategory, filterSkinType]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -68,18 +65,39 @@ export default function ShopCatalogPage() {
   useEffect(() => {
     if (status !== "ready") return;
     let cancelled = false;
+    setTrendingLoading(true);
+    (async () => {
+      try {
+        const data = await shopFetchCached<PaginatedResponse<ShopProduct>>(
+          "/shop/products?page=1&pageSize=24&sort=recent&stock=in_stock",
+          60_000,
+        );
+        if (!cancelled) setTrendingPool(data.items);
+      } catch {
+        if (!cancelled) setTrendingPool([]);
+      } finally {
+        if (!cancelled) setTrendingLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    let cancelled = false;
     setListLoading(true);
     setFetchError(null);
 
     const params = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
-      sort: sortMode,
+      sort: "recent",
     });
     if (search.trim()) params.set("search", search.trim());
     if (filterCategory) params.set("categoryId", filterCategory);
     if (filterSkinType) params.set("skinTypeId", filterSkinType);
-    if (filterStock !== "all") params.set("stock", filterStock);
 
     (async () => {
       try {
@@ -105,15 +123,7 @@ export default function ShopCatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    status,
-    page,
-    search,
-    filterCategory,
-    filterSkinType,
-    filterStock,
-    sortMode,
-  ]);
+  }, [status, page, search, filterCategory, filterSkinType]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
@@ -133,22 +143,6 @@ export default function ShopCatalogPage() {
       ...skinTypes.map((s) => ({ value: s.id, label: s.name })),
     ],
     [skinTypes],
-  );
-  const stockOptions = useMemo(
-    () => [
-      { value: "all", label: "All stock" },
-      { value: "in_stock", label: "In stock" },
-      { value: "low_stock", label: "Low stock" },
-      { value: "out_of_stock", label: "Out of stock" },
-    ],
-    [],
-  );
-  const sortOptions = useMemo(
-    () => [
-      { value: "name", label: "Name" },
-      { value: "recent", label: "Recent" },
-    ],
-    [],
   );
 
   const handleAddToCart = useCallback(
@@ -179,6 +173,7 @@ export default function ShopCatalogPage() {
   if (status === "loading") {
     return (
       <div className="space-y-4" aria-busy="true">
+        <Skeleton className="h-[210px] w-full rounded-2xl" />
         <Skeleton className="h-8 w-full max-w-sm" />
         <div className="grid grid-cols-2 gap-2.5">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -206,10 +201,12 @@ export default function ShopCatalogPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      <ShopTrendingBanner products={trendingPool} loading={trendingLoading} />
+
       <div className="mb-3">
-        <h1 className="text-lg font-semibold tracking-tight">Products</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Shop</h1>
         <p className="text-xs text-muted-foreground">
-          Order one item, or add several to your cart. Track orders anytime.
+          Browse by category or skin type. Order one item, or fill your cart.
         </p>
         {cartFlashId && (
           <p className="mt-1 text-xs font-medium text-primary">Added to cart</p>
@@ -223,14 +220,8 @@ export default function ShopCatalogPage() {
         onFilterCategoryChange={setFilterCategory}
         filterSkinType={filterSkinType}
         onFilterSkinTypeChange={setFilterSkinType}
-        filterStock={filterStock}
-        onFilterStockChange={setFilterStock}
-        sortMode={sortMode}
-        onSortModeChange={setSortMode}
         categoryOptions={categoryOptions}
         skinTypeOptions={skinTypeOptions}
-        stockOptions={stockOptions}
-        sortOptions={sortOptions}
       />
 
       {fetchError && (

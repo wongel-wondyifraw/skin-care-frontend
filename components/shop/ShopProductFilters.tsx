@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
 
 type SelectOption = { value: string; label: string };
-export type ShopStockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
-export type ShopSortMode = "name" | "recent";
 
 type ShopProductFiltersProps = {
   searchInput: string;
@@ -15,14 +13,8 @@ type ShopProductFiltersProps = {
   onFilterCategoryChange: (value: string) => void;
   filterSkinType: string;
   onFilterSkinTypeChange: (value: string) => void;
-  filterStock: ShopStockFilter;
-  onFilterStockChange: (value: ShopStockFilter) => void;
-  sortMode: ShopSortMode;
-  onSortModeChange: (value: ShopSortMode) => void;
   categoryOptions: SelectOption[];
   skinTypeOptions: SelectOption[];
-  stockOptions: SelectOption[];
-  sortOptions: SelectOption[];
 };
 
 export function ShopProductFilters({
@@ -32,14 +24,8 @@ export function ShopProductFilters({
   onFilterCategoryChange,
   filterSkinType,
   onFilterSkinTypeChange,
-  filterStock,
-  onFilterStockChange,
-  sortMode,
-  onSortModeChange,
   categoryOptions,
   skinTypeOptions,
-  stockOptions,
-  sortOptions,
 }: ShopProductFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -68,22 +54,6 @@ export function ShopProductFilters({
         placeholder="Skin type"
         size="sm"
         className="w-32"
-      />
-      <CustomSelect
-        value={filterStock}
-        onValueChange={(v) => onFilterStockChange(v as ShopStockFilter)}
-        options={stockOptions}
-        placeholder="Stock"
-        size="sm"
-        className="w-28"
-      />
-      <CustomSelect
-        value={sortMode}
-        onValueChange={(v) => onSortModeChange(v as ShopSortMode)}
-        options={sortOptions}
-        placeholder="Sort"
-        size="sm"
-        className="w-28"
       />
     </div>
   );

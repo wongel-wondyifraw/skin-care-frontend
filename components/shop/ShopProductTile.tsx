@@ -4,7 +4,7 @@ import { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { StockBadge } from "@/components/StockBadge";
+import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/format";
 
 export type ShopProduct = {
@@ -55,9 +55,13 @@ function ShopProductTileComponent({
           priority={priority}
         />
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
-        <div className="absolute top-2 left-2 right-2">
-          <StockBadge stock={prod.stock} />
-        </div>
+        {out && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="destructive" className="text-[10px]">
+              Out of stock
+            </Badge>
+          </div>
+        )}
         <div className="absolute bottom-2 left-2 right-2">
           <p className="text-[11px] font-semibold text-white drop-shadow-sm line-clamp-1">
             {prod.price != null ? formatMoney(Number(prod.price)) : ""}
@@ -90,7 +94,7 @@ function ShopProductTileComponent({
             disabled={out}
             onClick={() => onAddToCart(prod)}
           >
-            {out ? "Out of stock" : "Add to cart"}
+            {out ? "Unavailable" : "Add to cart"}
           </Button>
           <Button
             type="button"

@@ -8,7 +8,6 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { StockBadge } from "@/components/StockBadge";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
@@ -130,9 +129,13 @@ export default function ShopProductDetailPage() {
           sizes="(max-width: 640px) 100vw, 512px"
           priority
         />
-        <div className="absolute top-3 left-3">
-          <StockBadge stock={product.stock} />
-        </div>
+        {product.stock <= 0 && (
+          <div className="absolute top-3 left-3">
+            <Badge variant="destructive" className="text-[11px]">
+              Out of stock
+            </Badge>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -170,7 +173,7 @@ export default function ShopProductDetailPage() {
           onClick={handleAddToCart}
         >
           {product.stock <= 0
-            ? "Out of stock"
+            ? "Unavailable"
             : added
               ? "Added"
               : "Add to cart"}
