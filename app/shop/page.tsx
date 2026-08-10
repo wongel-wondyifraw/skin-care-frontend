@@ -173,7 +173,7 @@ export default function ShopCatalogPage() {
         <h1 className="text-lg font-semibold text-foreground">Sign in required</h1>
         <p className="text-sm text-muted-foreground">
           {authError ||
-            "Open Products in the Medaf Telegram bot, then tap Open Catalog."}
+            "Open Products from the Medaf Telegram bot to sign in."}
         </p>
         <Button type="button" onClick={retry}>
           Try again

@@ -44,6 +44,7 @@ type ShopAuthState = {
 };
 
 const ShopAuthContext = createContext<ShopAuthState | null>(null);
+const TG_SCRIPT_SRC = "https://telegram.org/js/telegram-web-app.js";
 
 export function useShopAuth() {
   const ctx = useContext(ShopAuthContext);
@@ -55,10 +56,49 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Telegram sometimes exposes WebApp before initData is filled — poll briefly. */
+function ensureTelegramScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.Telegram?.WebApp) return Promise.resolve();
+
+  const existing = document.querySelector<HTMLScriptElement>(
+    `script[src="${TG_SCRIPT_SRC}"]`,
+  );
+  if (existing) {
+    return new Promise((resolve) => {
+      if (window.Telegram?.WebApp) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      // Script may already have loaded before we attached the listener
+      window.setTimeout(() => resolve(), 300);
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = TG_SCRIPT_SRC;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Telegram WebApp SDK"));
+    document.head.appendChild(script);
+  });
+}
+
+async function waitForWebApp(timeoutMs = 8000): Promise<TelegramWebApp | null> {
+  await ensureTelegramScript().catch(() => undefined);
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const tg = window.Telegram?.WebApp;
+    if (tg) return tg;
+    await sleep(50);
+  }
+  return window.Telegram?.WebApp ?? null;
+}
+
 async function waitForInitData(
   webApp: TelegramWebApp,
-  timeoutMs = 5000,
+  timeoutMs = 8000,
 ): Promise<string> {
   try {
     webApp.ready();
@@ -71,25 +111,39 @@ async function waitForInitData(
   while (Date.now() - started < timeoutMs) {
     const data = webApp.initData?.trim() ?? "";
     if (data.length > 0) return data;
-    await sleep(100);
+    await sleep(50);
   }
   return webApp.initData?.trim() ?? "";
 }
 
-async function authenticate(webApp: TelegramWebApp | null): Promise<ShopCustomer> {
+async function authenticate(): Promise<{
+  customer: ShopCustomer;
+  webApp: TelegramWebApp | null;
+}> {
+  const webApp = await waitForWebApp();
+
   if (webApp) {
     const initData = await waitForInitData(webApp);
     if (initData) {
-      return shopLoginWithInitData(initData);
+      const customer = await shopLoginWithInitData(initData);
+      return { customer, webApp };
     }
   }
 
   if (getShopToken()) {
-    return shopFetchMe();
+    const customer = await shopFetchMe();
+    return { customer, webApp };
+  }
+
+  if (!webApp) {
+    throw new ShopApiError(
+      "Telegram WebApp did not load. Open Products from the Medaf bot (not a browser tab).",
+      401,
+    );
   }
 
   throw new ShopApiError(
-    "Open Products in the Medaf Telegram bot to browse the catalog.",
+    "No Telegram login data. Tap Products on the bot keyboard (the button that opens the app), then try again.",
     401,
   );
 }
@@ -99,57 +153,30 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomer] = useState<ShopCustomer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
-  const [scriptReady, setScriptReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
-    let tries = 0;
-
-    const tick = () => {
-      if (cancelled) return;
-      if (window.Telegram?.WebApp) {
-        setScriptReady(true);
-        return;
-      }
-      tries += 1;
-      if (tries < 50) {
-        window.setTimeout(tick, 100);
-      } else {
-        // Give auth a chance to fall back / show error
-        setScriptReady(true);
-      }
-    };
-
-    tick();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!scriptReady) return;
     let cancelled = false;
 
     (async () => {
       setStatus("loading");
       setError(null);
-      const tg = window.Telegram?.WebApp ?? null;
-      setWebApp(tg);
       try {
-        const profile = await authenticate(tg);
+        const result = await authenticate();
         if (cancelled) return;
-        setCustomer(profile);
+        setWebApp(result.webApp);
+        setCustomer(result.customer);
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
         clearShopToken();
         setCustomer(null);
+        setWebApp(window.Telegram?.WebApp ?? null);
         setStatus("error");
         setError(
           err instanceof Error
             ? err.message
-            : "Could not sign you in. Open Products from the Telegram bot.",
+            : "Could not sign you in from Telegram.",
         );
       }
     })();
@@ -157,14 +184,15 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [scriptReady, attempt]);
+  }, [attempt]);
 
   const requestOrder = useCallback(
     (productId: string) => {
       const payload = JSON.stringify({ action: "order", productId });
-      if (webApp?.initData && webApp.sendData) {
-        webApp.sendData(payload);
-        webApp.close?.();
+      const tg = webApp ?? window.Telegram?.WebApp ?? null;
+      if (tg?.initData && tg.sendData) {
+        tg.sendData(payload);
+        tg.close?.();
         return;
       }
       setError("Ordering is only available inside the Telegram Mini App.");
@@ -185,8 +213,6 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ShopAuthContext.Provider value={value}>
-      {children}
-    </ShopAuthContext.Provider>
+    <ShopAuthContext.Provider value={value}>{children}</ShopAuthContext.Provider>
   );
 }

@@ -61,9 +61,7 @@ export async function shopFetch<T>(
         ? body.message
         : Array.isArray(body?.message)
           ? body.message.join(", ")
-          : res.status === 401
-            ? "Please open the catalog from Telegram."
-            : "Request failed";
+          : `Request failed (${res.status})`;
     throw new ShopApiError(message, res.status);
   }
 

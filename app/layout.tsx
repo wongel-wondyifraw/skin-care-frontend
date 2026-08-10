@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ToastProvider";
@@ -26,6 +27,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${sourceSerif.variable} h-full`} suppressHydrationWarning>
+      <head>
+        {/* Required for Telegram Mini Apps — must be in root layout for beforeInteractive */}
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="min-h-full flex flex-col antialiased">
         <ToastProvider>{children}</ToastProvider>
       </body>
