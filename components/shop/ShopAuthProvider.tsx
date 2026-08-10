@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Script from "next/script";
 import {
   clearShopToken,
   getShopToken,
@@ -52,19 +51,45 @@ export function useShopAuth() {
   return ctx;
 }
 
-async function authenticate(webApp: TelegramWebApp | null): Promise<ShopCustomer> {
-  const initData = webApp?.initData?.trim() ?? "";
-  if (initData) {
-    return shopLoginWithInitData(initData);
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Telegram sometimes exposes WebApp before initData is filled — poll briefly. */
+async function waitForInitData(
+  webApp: TelegramWebApp,
+  timeoutMs = 5000,
+): Promise<string> {
+  try {
+    webApp.ready();
+    webApp.expand();
+  } catch {
+    // ignore
   }
 
-  // Dev convenience: reuse an existing session token if already logged in via Telegram earlier.
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const data = webApp.initData?.trim() ?? "";
+    if (data.length > 0) return data;
+    await sleep(100);
+  }
+  return webApp.initData?.trim() ?? "";
+}
+
+async function authenticate(webApp: TelegramWebApp | null): Promise<ShopCustomer> {
+  if (webApp) {
+    const initData = await waitForInitData(webApp);
+    if (initData) {
+      return shopLoginWithInitData(initData);
+    }
+  }
+
   if (getShopToken()) {
     return shopFetchMe();
   }
 
   throw new ShopApiError(
-    "Open this catalog from the Medaf Telegram bot (Products → Open Catalog).",
+    "Open Products in the Medaf Telegram bot to browse the catalog.",
     401,
   );
 }
@@ -78,9 +103,28 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      setScriptReady(true);
-    }
+    let cancelled = false;
+    let tries = 0;
+
+    const tick = () => {
+      if (cancelled) return;
+      if (window.Telegram?.WebApp) {
+        setScriptReady(true);
+        return;
+      }
+      tries += 1;
+      if (tries < 50) {
+        window.setTimeout(tick, 100);
+      } else {
+        // Give auth a chance to fall back / show error
+        setScriptReady(true);
+      }
+    };
+
+    tick();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,8 +137,6 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
       const tg = window.Telegram?.WebApp ?? null;
       setWebApp(tg);
       try {
-        tg?.ready();
-        tg?.expand();
         const profile = await authenticate(tg);
         if (cancelled) return;
         setCustomer(profile);
@@ -107,7 +149,7 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
         setError(
           err instanceof Error
             ? err.message
-            : "Could not sign you in. Open the catalog from Telegram.",
+            : "Could not sign you in. Open Products from the Telegram bot.",
         );
       }
     })();
@@ -120,7 +162,7 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
   const requestOrder = useCallback(
     (productId: string) => {
       const payload = JSON.stringify({ action: "order", productId });
-      if (webApp?.sendData) {
+      if (webApp?.initData && webApp.sendData) {
         webApp.sendData(payload);
         webApp.close?.();
         return;
@@ -144,16 +186,6 @@ export function ShopAuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <ShopAuthContext.Provider value={value}>
-      <Script
-        src="https://telegram.org/js/telegram-web-app.js"
-        strategy="afterInteractive"
-        onLoad={() => setScriptReady(true)}
-        onError={() => {
-          setScriptReady(true);
-          setStatus("error");
-          setError("Could not load Telegram WebApp SDK.");
-        }}
-      />
       {children}
     </ShopAuthContext.Provider>
   );

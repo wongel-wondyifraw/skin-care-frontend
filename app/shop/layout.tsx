@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ShopAuthProvider } from "@/components/shop/ShopAuthProvider";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 
@@ -14,6 +15,10 @@ export default function ShopLayout({
 }) {
   return (
     <ShopAuthProvider>
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="beforeInteractive"
+      />
       <div className="min-h-dvh bg-background flex flex-col">
         <ShopHeader />
         <main className="flex-1 px-3 py-4 sm:px-4">{children}</main>
