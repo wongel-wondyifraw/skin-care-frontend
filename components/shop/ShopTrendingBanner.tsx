@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
-import { ShopPrice } from "@/components/shop/ShopPrice";
+import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
+import { clampDiscountPercent } from "@/lib/shop-pricing";
 
 function productPitch(product: ShopProduct): string {
   const description = product.description?.trim();
@@ -98,6 +99,10 @@ export function ShopTrendingBanner({
               sizes="(max-width: 640px) 100vw, 640px"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/15" />
+            <ShopSaleBadge
+              percent={clampDiscountPercent(product.discountPercent)}
+              className="rounded-none rounded-bl-xl"
+            />
 
             <div className="absolute inset-0 flex flex-col justify-end gap-1.5 p-3 sm:p-3.5">
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/75">
@@ -112,7 +117,7 @@ export function ShopTrendingBanner({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                <ShopPrice item={product} light />
+                <ShopPrice item={product} light hideBadge />
                 <Button
                   asChild
                   size="sm"
@@ -139,7 +144,7 @@ export function ShopTrendingBanner({
       </div>
 
       {slides.length > 1 && (
-        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1">
+        <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/35 px-2 py-1">
           {slides.map((slide, i) => (
             <button
               key={slide.id}

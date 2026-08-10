@@ -16,9 +16,6 @@ import type { PaginatedResponse } from "@/lib/types/pagination";
 
 type RefItem = { id: string; name: string };
 
-/** After 2 rows on the 2-column Telegram layout (4 tiles). */
-const BANNER_AFTER = 4;
-
 export default function ShopCatalogPage() {
   const router = useRouter();
   const { status, error: authError, retry } = useShopAuth();
@@ -204,6 +201,12 @@ export default function ShopCatalogPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      <ShopTrendingBanner
+        products={trendingPool}
+        loading={trendingLoading}
+        className="mb-4"
+      />
+
       <div className="mb-3">
         <h1 className="text-lg font-semibold tracking-tight">Shop</h1>
         <p className="text-xs text-muted-foreground">
@@ -244,27 +247,11 @@ export default function ShopCatalogPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {products.slice(0, BANNER_AFTER).map((prod, index) => (
+            {products.map((prod, index) => (
               <ShopProductTile
                 key={prod.id}
                 prod={prod}
                 priority={index < 4}
-                onAddToCart={handleAddToCart}
-                onOrderNow={handleOrderNow}
-              />
-            ))}
-
-            <div className="col-span-2 sm:col-span-3">
-              <ShopTrendingBanner
-                products={trendingPool}
-                loading={trendingLoading}
-              />
-            </div>
-
-            {products.slice(BANNER_AFTER).map((prod) => (
-              <ShopProductTile
-                key={prod.id}
-                prod={prod}
                 onAddToCart={handleAddToCart}
                 onOrderNow={handleOrderNow}
               />

@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
-import { ShopPrice } from "@/components/shop/ShopPrice";
+import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
+import { clampDiscountPercent } from "@/lib/shop-pricing";
 
 export default function ShopProductDetailPage() {
   const params = useParams();
@@ -131,12 +132,13 @@ export default function ShopProductDetailPage() {
           priority
         />
         {product.stock <= 0 && (
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 z-[1]">
             <Badge variant="destructive" className="text-[11px]">
               Out of stock
             </Badge>
           </div>
         )}
+        <ShopSaleBadge percent={clampDiscountPercent(product.discountPercent)} />
       </div>
 
       <div className="space-y-2">
@@ -146,7 +148,7 @@ export default function ShopProductDetailPage() {
           </p>
         )}
         <h1 className="text-xl font-semibold tracking-tight">{product.name}</h1>
-        <ShopPrice item={product} size="md" />
+        <ShopPrice item={product} size="md" hideBadge />
         <div className="flex flex-wrap gap-1.5">
           {product.category?.name && (
             <Badge variant="secondary">{product.category.name}</Badge>

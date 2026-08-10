@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShopPrice } from "@/components/shop/ShopPrice";
+import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
+import { clampDiscountPercent } from "@/lib/shop-pricing";
 
 export type ShopProduct = {
   id: string;
@@ -40,6 +41,7 @@ function ShopProductTileComponent({
   onOrderNow,
 }: ShopProductTileProps) {
   const out = prod.stock <= 0;
+  const salePct = clampDiscountPercent(prod.discountPercent);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-md active:scale-[0.99]">
@@ -55,16 +57,17 @@ function ShopProductTileComponent({
           sizes="(max-width: 640px) 50vw, 33vw"
           priority={priority}
         />
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
+        <ShopSaleBadge percent={salePct} />
         {out && (
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 z-[1]">
             <Badge variant="destructive" className="text-[10px]">
               Out of stock
             </Badge>
           </div>
         )}
         <div className="absolute bottom-2 left-2 right-2">
-          <ShopPrice item={prod} light />
+          <ShopPrice item={prod} light hideBadge />
         </div>
       </Link>
 
