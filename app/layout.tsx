@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   title: "Medaf Skin Care | Admin",
   description: "Medaf Skin Care administration portal",
   icons: {
-    icon: [{ url: "/medaf_hand.png", type: "image/png" }],
-    apple: [{ url: "/medaf_hand.png", type: "image/png" }],
-    shortcut: ["/medaf_hand.png"],
+    icon: [{ url: "/medaf_hand_sm.png", type: "image/png" }],
+    apple: [{ url: "/medaf_hand_sm.png", type: "image/png" }],
+    shortcut: ["/medaf_hand_sm.png"],
   },
 };
 

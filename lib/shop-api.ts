@@ -7,8 +7,26 @@ export type ShopCustomer = {
   fullName: string;
   initials: string;
   phone?: string;
+  address?: string | null;
   skinType?: { id: string; name: string } | null;
   telegramId?: number;
+};
+
+export type ShopOrderStatus = "pending" | "delivered" | "cancelled";
+
+export type ShopOrder = {
+  id: string;
+  status: ShopOrderStatus;
+  cost: number;
+  quantity: number;
+  deliveryAddress?: string | null;
+  createdAt: string;
+  product?: {
+    id: string;
+    name: string;
+    image?: string;
+    brand?: string | null;
+  } | null;
 };
 
 export class ShopApiError extends Error {
@@ -20,6 +38,13 @@ export class ShopApiError extends Error {
     this.status = status;
   }
 }
+
+type CacheEntry = {
+  expiresAt: number;
+  promise: Promise<unknown>;
+};
+
+const shopRequestCache = new Map<string, CacheEntry>();
 
 function shopBaseUrl() {
   return resolveApiBaseUrl();
@@ -36,6 +61,17 @@ export function setShopToken(token: string) {
 
 export function clearShopToken() {
   sessionStorage.removeItem(SHOP_TOKEN_KEY);
+  shopRequestCache.clear();
+}
+
+export function invalidateShopCache(pathPrefix?: string) {
+  if (!pathPrefix) {
+    shopRequestCache.clear();
+    return;
+  }
+  for (const key of shopRequestCache.keys()) {
+    if (key.startsWith(pathPrefix)) shopRequestCache.delete(key);
+  }
 }
 
 export async function shopFetch<T>(
@@ -71,6 +107,27 @@ export async function shopFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/** In-memory GET cache for catalog navigation (stale-while TTL). */
+export function shopFetchCached<T>(path: string, ttlMs = 45_000): Promise<T> {
+  const now = Date.now();
+  const cached = shopRequestCache.get(path);
+  if (cached && cached.expiresAt > now) {
+    return cached.promise as Promise<T>;
+  }
+
+  const promise = shopFetch<T>(path).catch((error) => {
+    shopRequestCache.delete(path);
+    throw error;
+  });
+
+  shopRequestCache.set(path, {
+    expiresAt: now + ttlMs,
+    promise,
+  });
+
+  return promise;
+}
+
 export async function shopLoginWithTelegramId(telegramId: number) {
   const data = await shopFetch<{
     accessToken: string;
@@ -85,4 +142,35 @@ export async function shopLoginWithTelegramId(telegramId: number) {
 
 export async function shopFetchMe() {
   return shopFetch<ShopCustomer>("/shop/me");
+}
+
+export async function shopCreateOrders(body: {
+  items: { productId: string; quantity: number }[];
+  deliveryAddress?: string;
+}) {
+  const orders = await shopFetch<ShopOrder[]>("/shop/orders", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  invalidateShopCache("/shop/products");
+  invalidateShopCache("/shop/orders");
+  return orders;
+}
+
+export async function shopFetchOrders(params?: {
+  page?: number;
+  pageSize?: number;
+  status?: ShopOrderStatus | "all";
+}) {
+  const search = new URLSearchParams();
+  if (params?.page) search.set("page", String(params.page));
+  if (params?.pageSize) search.set("pageSize", String(params.pageSize));
+  if (params?.status) search.set("status", params.status);
+  const qs = search.toString();
+  return shopFetch<{
+    items: ShopOrder[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(`/shop/orders${qs ? `?${qs}` : ""}`);
 }

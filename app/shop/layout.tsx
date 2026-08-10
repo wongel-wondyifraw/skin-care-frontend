@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ShopAuthProvider } from "@/components/shop/ShopAuthProvider";
+import { ShopCartProvider } from "@/components/shop/ShopCartProvider";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 
 export const metadata: Metadata = {
@@ -14,10 +15,12 @@ export default function ShopLayout({
 }) {
   return (
     <ShopAuthProvider>
-      <div className="min-h-dvh bg-background flex flex-col">
-        <ShopHeader />
-        <main className="flex-1 px-3 py-4 sm:px-4">{children}</main>
-      </div>
+      <ShopCartProvider>
+        <div className="min-h-dvh bg-background flex flex-col">
+          <ShopHeader />
+          <main className="flex-1 px-3 py-4 sm:px-4">{children}</main>
+        </div>
+      </ShopCartProvider>
     </ShopAuthProvider>
   );
 }

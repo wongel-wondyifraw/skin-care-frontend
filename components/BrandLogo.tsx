@@ -37,7 +37,7 @@ export function BrandLogo({
       )}
     >
       <Image
-        src="/medaf_hand.png"
+        src="/medaf_hand_sm.png"
         alt=""
         width={dim.width}
         height={dim.height}

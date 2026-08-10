@@ -1,31 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationBar } from "@/components/PaginationBar";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
+import { useShopCart } from "@/components/shop/ShopCartProvider";
 import {
   ShopProductFilters,
   type ShopSortMode,
   type ShopStockFilter,
 } from "@/components/shop/ShopProductFilters";
 import { ShopProductTile, type ShopProduct } from "@/components/shop/ShopProductTile";
-import { shopFetch, ShopApiError } from "@/lib/shop-api";
+import { shopFetchCached, ShopApiError } from "@/lib/shop-api";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
 
 type RefItem = { id: string; name: string };
 
 export default function ShopCatalogPage() {
-  const { status, error: authError, retry, requestOrder } = useShopAuth();
+  const router = useRouter();
+  const { status, error: authError, retry } = useShopAuth();
+  const { addItem } = useShopCart();
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [categories, setCategories] = useState<RefItem[]>([]);
   const [skinTypes, setSkinTypes] = useState<RefItem[]>([]);
   const [total, setTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [orderingId, setOrderingId] = useState<string | null>(null);
+  const [cartFlashId, setCartFlashId] = useState<string | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -46,8 +50,8 @@ export default function ShopCatalogPage() {
     (async () => {
       try {
         const [c, s] = await Promise.all([
-          shopFetch<RefItem[]>("/shop/categories"),
-          shopFetch<RefItem[]>("/shop/skin-types"),
+          shopFetchCached<RefItem[]>("/shop/categories", 120_000),
+          shopFetchCached<RefItem[]>("/shop/skin-types", 120_000),
         ]);
         if (cancelled) return;
         setCategories(c);
@@ -63,7 +67,7 @@ export default function ShopCatalogPage() {
 
   useEffect(() => {
     if (status !== "ready") return;
-    const controller = new AbortController();
+    let cancelled = false;
     setListLoading(true);
     setFetchError(null);
 
@@ -79,26 +83,28 @@ export default function ShopCatalogPage() {
 
     (async () => {
       try {
-        const data = await shopFetch<PaginatedResponse<ShopProduct>>(
+        const data = await shopFetchCached<PaginatedResponse<ShopProduct>>(
           `/shop/products?${params.toString()}`,
-          { signal: controller.signal },
+          30_000,
         );
-        if (controller.signal.aborted) return;
+        if (cancelled) return;
         setProducts(data.items);
         setTotal(data.total);
       } catch (err) {
-        if (controller.signal.aborted) return;
+        if (cancelled) return;
         setFetchError(
           err instanceof ShopApiError
             ? err.message
             : "Failed to load products.",
         );
       } finally {
-        if (!controller.signal.aborted) setListLoading(false);
+        if (!cancelled) setListLoading(false);
       }
     })();
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [
     status,
     page,
@@ -145,14 +151,30 @@ export default function ShopCatalogPage() {
     [],
   );
 
-  function handleOrder(prod: ShopProduct) {
-    setOrderingId(prod.id);
-    try {
-      requestOrder(prod.id);
-    } finally {
-      window.setTimeout(() => setOrderingId(null), 1500);
-    }
-  }
+  const handleAddToCart = useCallback(
+    (prod: ShopProduct) => {
+      addItem({
+        productId: prod.id,
+        name: prod.name,
+        brand: prod.brand,
+        image: prod.image,
+        price: Number(prod.price) || 0,
+        stock: prod.stock,
+      });
+      setCartFlashId(prod.id);
+      window.setTimeout(() => setCartFlashId(null), 1200);
+    },
+    [addItem],
+  );
+
+  const handleOrderNow = useCallback(
+    (prod: ShopProduct) => {
+      router.push(
+        `/shop/checkout?productId=${encodeURIComponent(prod.id)}&qty=1`,
+      );
+    },
+    [router],
+  );
 
   if (status === "loading") {
     return (
@@ -187,8 +209,11 @@ export default function ShopCatalogPage() {
       <div className="mb-3">
         <h1 className="text-lg font-semibold tracking-tight">Products</h1>
         <p className="text-xs text-muted-foreground">
-          Search and filter the catalog. Order continues in Telegram.
+          Order one item, or add several to your cart. Track orders anytime.
         </p>
+        {cartFlashId && (
+          <p className="mt-1 text-xs font-medium text-primary">Added to cart</p>
+        )}
       </div>
 
       <ShopProductFilters
@@ -232,8 +257,8 @@ export default function ShopCatalogPage() {
                 key={prod.id}
                 prod={prod}
                 priority={index < 4}
-                orderingId={orderingId}
-                onOrder={handleOrder}
+                onAddToCart={handleAddToCart}
+                onOrderNow={handleOrderNow}
               />
             ))}
           </div>

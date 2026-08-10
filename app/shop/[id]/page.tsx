@@ -3,25 +3,28 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/StockBadge";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
+import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
 import { formatMoney } from "@/lib/format";
 
 export default function ShopProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = typeof params.id === "string" ? params.id : "";
-  const { status, error: authError, retry, requestOrder } = useShopAuth();
+  const { status, error: authError, retry } = useShopAuth();
+  const { addItem } = useShopCart();
   const [product, setProduct] = useState<ShopProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ordering, setOrdering] = useState(false);
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     if (status !== "ready" || !id) return;
@@ -47,11 +50,25 @@ export default function ShopProductDetailPage() {
     };
   }, [status, id]);
 
-  function handleOrder() {
+  function handleAddToCart() {
     if (!product) return;
-    setOrdering(true);
-    requestOrder(product.id);
-    window.setTimeout(() => setOrdering(false), 1500);
+    addItem({
+      productId: product.id,
+      name: product.name,
+      brand: product.brand,
+      image: product.image,
+      price: Number(product.price) || 0,
+      stock: product.stock,
+    });
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 1200);
+  }
+
+  function handleOrderNow() {
+    if (!product) return;
+    router.push(
+      `/shop/checkout?productId=${encodeURIComponent(product.id)}&qty=1`,
+    );
   }
 
   if (status === "loading" || (status === "ready" && loading)) {
@@ -145,18 +162,27 @@ export default function ShopProductDetailPage() {
         )}
       </div>
 
-      <Button
-        type="button"
-        className="w-full"
-        disabled={product.stock <= 0 || ordering}
-        onClick={handleOrder}
-      >
-        {product.stock <= 0
-          ? "Out of stock"
-          : ordering
-            ? "Opening Telegram…"
-            : "Order in Telegram"}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={product.stock <= 0}
+          onClick={handleAddToCart}
+        >
+          {product.stock <= 0
+            ? "Out of stock"
+            : added
+              ? "Added"
+              : "Add to cart"}
+        </Button>
+        <Button
+          type="button"
+          disabled={product.stock <= 0}
+          onClick={handleOrderNow}
+        >
+          Order
+        </Button>
+      </div>
     </div>
   );
 }

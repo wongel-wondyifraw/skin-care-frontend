@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,16 +28,18 @@ function skinLabels(prod: ShopProduct) {
 type ShopProductTileProps = {
   prod: ShopProduct;
   priority?: boolean;
-  orderingId: string | null;
-  onOrder: (p: ShopProduct) => void;
+  onAddToCart: (p: ShopProduct) => void;
+  onOrderNow: (p: ShopProduct) => void;
 };
 
-export function ShopProductTile({
+function ShopProductTileComponent({
   prod,
   priority = false,
-  orderingId,
-  onOrder,
+  onAddToCart,
+  onOrderNow,
 }: ShopProductTileProps) {
+  const out = prod.stock <= 0;
+
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-md active:scale-[0.99]">
       <Link
@@ -78,16 +81,30 @@ export function ShopProductTile({
           {[prod.category?.name, skinLabels(prod)].filter(Boolean).join(" · ")}
         </p>
 
-        <Button
-          type="button"
-          size="sm"
-          className="mt-auto h-8 w-full text-xs"
-          disabled={prod.stock <= 0 || orderingId === prod.id}
-          onClick={() => onOrder(prod)}
-        >
-          {prod.stock <= 0 ? "Out of stock" : orderingId === prod.id ? "Opening…" : "Order"}
-        </Button>
+        <div className="mt-auto grid grid-cols-2 gap-1.5 pt-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 text-[11px] px-1"
+            disabled={out}
+            onClick={() => onAddToCart(prod)}
+          >
+            {out ? "Out of stock" : "Add to cart"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[11px] px-1"
+            disabled={out}
+            onClick={() => onOrderNow(prod)}
+          >
+            Order
+          </Button>
+        </div>
       </div>
     </article>
   );
 }
+
+export const ShopProductTile = memo(ShopProductTileComponent);
