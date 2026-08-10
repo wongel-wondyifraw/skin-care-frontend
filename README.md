@@ -27,6 +27,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) — unauthenticated visits redirect to `/admin/login`.
 
+Customer Mini App catalog lives at `/shop` (open from the Telegram bot Products button). It authenticates via Telegram `initData`, not admin login.
+
 ## Scripts
 
 | Script | Purpose |
