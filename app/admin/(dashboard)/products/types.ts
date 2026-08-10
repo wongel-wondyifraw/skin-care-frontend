@@ -23,6 +23,7 @@ export interface Product {
   stock: number;
   price: number;
   discountPercent?: number;
+  discountEndsAt?: string | null;
   createdAt: string;
 }
 

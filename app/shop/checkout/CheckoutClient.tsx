@@ -120,6 +120,7 @@ export default function CheckoutClient() {
               quantity: qty,
               price: Number(product.price) || 0,
               discountPercent: Number(product.discountPercent) || 0,
+              discountEndsAt: product.discountEndsAt ?? null,
             },
           ]}
           defaultAddress={customer?.address}

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
-import { clampDiscountPercent } from "@/lib/shop-pricing";
+import { activeDiscountPercent } from "@/lib/shop-pricing";
 
 function productPitch(product: ShopProduct): string {
   const description = product.description?.trim();
@@ -100,7 +100,11 @@ export function ShopTrendingBanner({
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/15" />
             <ShopSaleBadge
-              percent={clampDiscountPercent(product.discountPercent)}
+              percent={activeDiscountPercent(
+                product.discountPercent,
+                product.discountEndsAt,
+              )}
+              endsAt={product.discountEndsAt}
               className="rounded-none rounded-bl-xl"
             />
 
@@ -116,7 +120,7 @@ export function ShopTrendingBanner({
                   {productPitch(product)}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <div className="flex flex-wrap items-center gap-2 pt-0.5 pr-14">
                 <ShopPrice item={product} light hideBadge />
                 <Button
                   asChild
@@ -144,7 +148,7 @@ export function ShopTrendingBanner({
       </div>
 
       {slides.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/35 px-2 py-1">
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/40 px-2 py-1">
           {slides.map((slide, i) => (
             <button
               key={slide.id}

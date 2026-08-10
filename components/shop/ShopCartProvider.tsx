@@ -20,6 +20,7 @@ export type CartItem = {
   image: string;
   price: number;
   discountPercent?: number;
+  discountEndsAt?: string | null;
   stock: number;
   quantity: number;
 };

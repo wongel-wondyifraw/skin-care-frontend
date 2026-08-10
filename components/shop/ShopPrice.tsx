@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { formatMoney } from "@/lib/format";
 import {
-  clampDiscountPercent,
+  activeDiscountPercent,
+  formatCountdown,
   hasShopDiscount,
   shopSalePrice,
   type PricedItem,
@@ -14,28 +16,58 @@ type ShopPriceProps = {
   className?: string;
   size?: "sm" | "md";
   light?: boolean;
-  /** Hide the −% chip when a separate corner badge is shown */
   hideBadge?: boolean;
 };
 
-/** Bold corner sale mark for product images. */
+function useMsLeft(endsAt?: string | Date | null) {
+  const [msLeft, setMsLeft] = useState(() => {
+    if (!endsAt) return null;
+    return Math.max(0, new Date(endsAt).getTime() - Date.now());
+  });
+
+  useEffect(() => {
+    if (!endsAt) {
+      setMsLeft(null);
+      return;
+    }
+    const tick = () => {
+      setMsLeft(Math.max(0, new Date(endsAt).getTime() - Date.now()));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [endsAt]);
+
+  return msLeft;
+}
+
+/** Bold corner sale mark — shows countdown when time-bound. */
 export function ShopSaleBadge({
   percent,
+  endsAt,
   className,
 }: {
   percent: number;
+  endsAt?: string | Date | null;
   className?: string;
 }) {
-  const pct = clampDiscountPercent(percent);
+  const pct = activeDiscountPercent(percent, endsAt);
+  const msLeft = useMsLeft(endsAt);
   if (pct <= 0) return null;
+
+  const timed = endsAt != null && msLeft != null;
 
   return (
     <span
       className={cn(
-        "pointer-events-none absolute top-0 right-0 z-[1] flex min-w-[2.75rem] flex-col items-center justify-center rounded-bl-xl bg-rose-600 px-2 py-1.5 text-center shadow-md",
+        "pointer-events-none absolute top-0 right-0 z-[1] flex min-w-[3rem] flex-col items-center justify-center rounded-bl-xl bg-rose-600 px-2 py-1.5 text-center shadow-md",
         className,
       )}
-      aria-label={`${pct}% off`}
+      aria-label={
+        timed
+          ? `${pct}% off, ${formatCountdown(msLeft)} left`
+          : `${pct}% off`
+      }
     >
       <span className="text-[9px] font-bold uppercase leading-none tracking-wide text-rose-50/90">
         Sale
@@ -43,6 +75,11 @@ export function ShopSaleBadge({
       <span className="text-[13px] font-extrabold leading-none text-white tabular-nums">
         −{pct}%
       </span>
+      {timed && (
+        <span className="mt-0.5 text-[9px] font-bold tabular-nums leading-none text-rose-50">
+          {formatCountdown(msLeft)}
+        </span>
+      )}
     </span>
   );
 }
@@ -54,7 +91,7 @@ export function ShopPrice({
   light = false,
   hideBadge = false,
 }: ShopPriceProps) {
-  const pct = clampDiscountPercent(item.discountPercent);
+  const pct = activeDiscountPercent(item.discountPercent, item.discountEndsAt);
   const sale = shopSalePrice(item);
   const onSale = hasShopDiscount(item);
 
@@ -100,9 +137,7 @@ export function ShopPrice({
           className={cn(
             "rounded-md px-1.5 py-0.5 font-extrabold uppercase tracking-wide",
             size === "md" ? "text-[11px]" : "text-[9px]",
-            light
-              ? "bg-rose-500 text-white"
-              : "bg-rose-600 text-white",
+            light ? "bg-rose-500 text-white" : "bg-rose-600 text-white",
           )}
         >
           −{pct}%

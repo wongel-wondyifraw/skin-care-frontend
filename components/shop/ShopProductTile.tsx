@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
-import { clampDiscountPercent } from "@/lib/shop-pricing";
+import { activeDiscountPercent } from "@/lib/shop-pricing";
 
 export type ShopProduct = {
   id: string;
@@ -20,6 +20,7 @@ export type ShopProduct = {
   stock: number;
   price: number;
   discountPercent?: number;
+  discountEndsAt?: string | null;
 };
 
 function skinLabels(prod: ShopProduct) {
@@ -41,7 +42,10 @@ function ShopProductTileComponent({
   onOrderNow,
 }: ShopProductTileProps) {
   const out = prod.stock <= 0;
-  const salePct = clampDiscountPercent(prod.discountPercent);
+  const salePct = activeDiscountPercent(
+    prod.discountPercent,
+    prod.discountEndsAt,
+  );
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-md active:scale-[0.99]">
@@ -58,7 +62,7 @@ function ShopProductTileComponent({
           priority={priority}
         />
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
-        <ShopSaleBadge percent={salePct} />
+        <ShopSaleBadge percent={salePct} endsAt={prod.discountEndsAt} />
         {out && (
           <div className="absolute top-2 left-2 z-[1]">
             <Badge variant="destructive" className="text-[10px]">

@@ -13,7 +13,7 @@ import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
-import { clampDiscountPercent } from "@/lib/shop-pricing";
+import { activeDiscountPercent } from "@/lib/shop-pricing";
 
 export default function ShopProductDetailPage() {
   const params = useParams();
@@ -59,6 +59,7 @@ export default function ShopProductDetailPage() {
       image: product.image,
       price: Number(product.price) || 0,
       discountPercent: Number(product.discountPercent) || 0,
+      discountEndsAt: product.discountEndsAt ?? null,
       stock: product.stock,
     });
     setAdded(true);
@@ -138,7 +139,13 @@ export default function ShopProductDetailPage() {
             </Badge>
           </div>
         )}
-        <ShopSaleBadge percent={clampDiscountPercent(product.discountPercent)} />
+        <ShopSaleBadge
+          percent={activeDiscountPercent(
+            product.discountPercent,
+            product.discountEndsAt,
+          )}
+          endsAt={product.discountEndsAt}
+        />
       </div>
 
       <div className="space-y-2">

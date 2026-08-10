@@ -154,6 +154,7 @@ export default function ShopCatalogPage() {
         image: prod.image,
         price: Number(prod.price) || 0,
         discountPercent: Number(prod.discountPercent) || 0,
+        discountEndsAt: prod.discountEndsAt ?? null,
         stock: prod.stock,
       });
       setCartFlashId(prod.id);

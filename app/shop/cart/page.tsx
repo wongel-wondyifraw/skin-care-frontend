@@ -136,6 +136,7 @@ export default function ShopCartPage() {
             quantity: item.quantity,
             price: item.price,
             discountPercent: item.discountPercent,
+            discountEndsAt: item.discountEndsAt,
           }))}
           defaultAddress={customer?.address}
           onSuccess={clear}

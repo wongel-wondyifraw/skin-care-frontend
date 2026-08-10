@@ -14,6 +14,7 @@ type CheckoutLine = {
   quantity: number;
   price: number;
   discountPercent?: number;
+  discountEndsAt?: string | null;
 };
 
 type ShopCheckoutFormProps = {
