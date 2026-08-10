@@ -71,13 +71,13 @@ export async function shopFetch<T>(
   return res.json() as Promise<T>;
 }
 
-export async function shopLoginWithInitData(initData: string) {
+export async function shopLoginWithTelegramId(telegramId: number) {
   const data = await shopFetch<{
     accessToken: string;
     customer: ShopCustomer;
   }>("/shop/auth/telegram", {
     method: "POST",
-    body: JSON.stringify({ initData }),
+    body: JSON.stringify({ telegramId }),
   });
   setShopToken(data.accessToken);
   return data.customer;
