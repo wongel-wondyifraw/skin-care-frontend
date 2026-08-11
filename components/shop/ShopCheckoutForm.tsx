@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ShopPrice } from "@/components/shop/ShopPrice";
+import { Money } from "@/components/Money";
 import { shopCreateOrders, ShopApiError } from "@/lib/shop-api";
-import { formatMoney } from "@/lib/format";
 import { shopSalePrice } from "@/lib/shop-pricing";
 
 type CheckoutLine = {
@@ -98,9 +98,11 @@ export function ShopCheckoutForm({
                   </span>
                 </span>
               </span>
-              <span className="shrink-0 font-medium">
-                {formatMoney(unit * line.quantity)}
-              </span>
+              <Money
+                amount={unit * line.quantity}
+                size="sm"
+                className="shrink-0"
+              />
             </li>
           );
         })}
@@ -108,7 +110,7 @@ export function ShopCheckoutForm({
 
       <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
         <span>Total</span>
-        <span>{formatMoney(total)}</span>
+        <Money amount={total} size="md" />
       </div>
 
       <label className="block space-y-1.5">

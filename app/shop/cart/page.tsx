@@ -10,7 +10,7 @@ import { useShopCart } from "@/components/shop/ShopCartProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
 import { ShopPrice } from "@/components/shop/ShopPrice";
-import { formatMoney } from "@/lib/format";
+import { Money } from "@/components/Money";
 import { shopSalePrice } from "@/lib/shop-pricing";
 
 export default function ShopCartPage() {
@@ -83,7 +83,7 @@ export default function ShopCartPage() {
           <h1 className="text-lg font-semibold tracking-tight">Cart</h1>
           <p className="text-xs text-muted-foreground">
             {items.length} product{items.length === 1 ? "" : "s"} ·{" "}
-            {formatMoney(subtotal)}
+            <Money amount={subtotal} size="sm" />
           </p>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={clear}>
@@ -112,7 +112,11 @@ export default function ShopCartPage() {
                   <p className="text-sm font-semibold line-clamp-2">{item.name}</p>
                   <ShopPrice item={item} />
                   <p className="text-[10px] text-muted-foreground">
-                    Line {formatMoney(shopSalePrice(item) * item.quantity)}
+                    Line{" "}
+                    <Money
+                      amount={shopSalePrice(item) * item.quantity}
+                      size="xs"
+                    />
                   </p>
                 </div>
                 <button

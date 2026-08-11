@@ -13,7 +13,8 @@ import { ProductImagePreview } from "@/components/ProductImagePreview";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isNetworkError } from "@/lib/errors";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { Money } from "@/components/Money";
 
 type SkinType = { id: string; name: string };
 type Customer = {
@@ -237,7 +238,14 @@ export default function ScanDetailPage() {
                       className="text-xs text-primary no-underline hover:underline"
                     >
                       {p.name}
-                      {p.price != null ? ` · ${formatMoney(Number(p.price))}` : ""}
+                      {p.price != null ? (
+                        <>
+                          {" · "}
+                          <Money amount={Number(p.price)} size="xs" />
+                        </>
+                      ) : (
+                        ""
+                      )}
                     </Link>
                   </li>
                 ))}

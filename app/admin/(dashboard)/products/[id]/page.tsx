@@ -22,7 +22,8 @@ import { ProductImagePreview } from "@/components/ProductImagePreview";
 import { StockBadge } from "@/components/StockBadge";
 import { useNetwork } from "@/components/NetworkProvider";
 import { isNetworkError } from "@/lib/errors";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { Money } from "@/components/Money";
 
 type Category = { id: string; name: string };
 type SkinType = { id: string; name: string };
@@ -189,9 +190,11 @@ export default function ProductDetailPage() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StockBadge stock={product.stock} />
               <span className="text-lg font-semibold text-foreground">
-                {product.price != null
-                  ? formatMoney(Number(product.price))
-                  : "Price not set"}
+                {product.price != null ? (
+                  <Money amount={Number(product.price)} size="md" />
+                ) : (
+                  "Price not set"
+                )}
               </span>
             </div>
           </div>
@@ -199,9 +202,11 @@ export default function ProductDetailPage() {
           <Card>
             <CardContent className="p-4 sm:p-5">
               <InfoRow icon={Banknote} label="Price">
-                {product.price != null
-                  ? formatMoney(Number(product.price))
-                  : "—"}
+                {product.price != null ? (
+                  <Money amount={Number(product.price)} size="sm" />
+                ) : (
+                  "—"
+                )}
               </InfoRow>
               <InfoRow icon={Package} label="Stock">
                 {product.stock} units

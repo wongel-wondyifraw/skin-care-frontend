@@ -32,9 +32,9 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
-import { formatMoney } from "@/lib/format";
 import { formatCountdown } from "@/lib/shop-pricing";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Money } from "@/components/Money";
 import { cn } from "@/lib/utils";
 
 type SectionId = "profile" | "banner" | "discounts" | "team";
@@ -833,7 +833,7 @@ function DiscountsSection() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatMoney(Number(p.price) || 0)}
+                      <Money amount={Number(p.price) || 0} size="xs" />
                     </p>
                     <DealCountdown endsAt={p.discountEndsAt} />
                   </div>
@@ -912,14 +912,14 @@ function DiscountsSection() {
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">
                         {p.name}
                       </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatMoney(Number(p.price) || 0)}
-                        {pct > 0 ? (
-                          <span className="ml-1.5 font-bold text-rose-700">
-                            −{pct}%
-                          </span>
-                        ) : null}
-                      </span>
+                    <span className="shrink-0 text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                      <Money amount={Number(p.price) || 0} size="xs" />
+                      {pct > 0 ? (
+                        <span className="font-bold text-rose-700">
+                          −{pct}%
+                        </span>
+                      ) : null}
+                    </span>
                     </button>
                   );
                 })

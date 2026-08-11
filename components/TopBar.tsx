@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ConfirmModal from "./ConfirmModal";
 import { BrandLogo } from "@/components/BrandLogo";
+import { AdminNotificationsBell } from "@/components/AdminNotificationsBell";
 import { cn } from "@/lib/utils";
 
 export default function TopBar({
@@ -37,7 +38,8 @@ export default function TopBar({
         <span className="text-sm font-medium text-muted-foreground tracking-wide">
           {title}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <AdminNotificationsBell />
           {adminName && (
             <span className="text-sm text-foreground">{adminName}</span>
           )}
@@ -53,6 +55,7 @@ export default function TopBar({
       <header className="flex lg:hidden items-center justify-between px-3 h-14 bg-card border-b border-border sticky top-0 z-10">
         <BrandLogo href="/admin/dashboard" size="sm" stacked priority />
         <div className="flex items-center gap-1.5">
+          <AdminNotificationsBell />
           {adminName && (
             <span className="text-xs text-muted-foreground max-w-[72px] truncate">
               {adminName}

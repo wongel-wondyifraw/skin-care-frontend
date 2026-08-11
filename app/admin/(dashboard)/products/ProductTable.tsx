@@ -3,7 +3,7 @@ import { Pencil, Trash2, PackagePlus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StockBadge } from "@/components/StockBadge";
 import { ProductImagePreview } from "@/components/ProductImagePreview";
-import { formatMoney } from "@/lib/format";
+import { Money } from "@/components/Money";
 import {
   Table,
   TableBody,
@@ -70,7 +70,11 @@ export function ProductTable({
                   <span className="line-clamp-2">{productSkinLabels(prod)}</span>
                 </TableCell>
                 <TableCell className="font-medium">
-                  {prod.price != null ? formatMoney(Number(prod.price)) : "—"}
+                  {prod.price != null ? (
+                    <Money amount={Number(prod.price)} size="sm" />
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell>
                   <StockBadge stock={prod.stock} />
@@ -152,7 +156,11 @@ export function ProductTable({
               </p>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span className="text-sm font-medium">
-                  {prod.price != null ? formatMoney(Number(prod.price)) : "—"}
+                  {prod.price != null ? (
+                    <Money amount={Number(prod.price)} size="sm" />
+                  ) : (
+                    "—"
+                  )}
                 </span>
                 <StockBadge stock={prod.stock} />
               </div>

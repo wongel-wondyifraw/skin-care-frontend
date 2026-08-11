@@ -6,15 +6,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
+import { Money } from "@/components/Money";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import {
+  shopCancelOrder,
   shopFetchOrders,
   ShopApiError,
   type ShopOrder,
   type ShopOrderStatus,
 } from "@/lib/shop-api";
-import { formatMoney } from "@/lib/format";
 
 const FILTERS: { value: ShopOrderStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -40,6 +41,7 @@ export default function ShopOrdersPage() {
   const [filter, setFilter] = useState<ShopOrderStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -70,6 +72,34 @@ export default function ShopOrdersPage() {
       cancelled = true;
     };
   }, [status, filter]);
+
+  async function handleCancel(order: ShopOrder) {
+    if (order.status !== "pending") return;
+    const ok = window.confirm(
+      `Cancel order for ${order.product?.name ?? "this product"}?`,
+    );
+    if (!ok) return;
+
+    setCancellingId(order.id);
+    setError(null);
+    try {
+      const updated = await shopCancelOrder(order.id);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, ...updated } : o)),
+      );
+      if (filter !== "all" && filter !== "cancelled") {
+        setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      }
+    } catch (err) {
+      setError(
+        err instanceof ShopApiError
+          ? err.message
+          : "Could not cancel this order.",
+      );
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -156,15 +186,20 @@ export default function ShopOrdersPage() {
                   />
                 ) : null}
               </div>
-              <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold line-clamp-2">
                     {order.product?.name ?? "Product"}
                   </p>
                   <OrderStatusIndicator status={order.status} showLabel />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Qty {order.quantity} · {formatMoney(Number(order.cost) * order.quantity)}
+                <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <span>Qty {order.quantity}</span>
+                  <span aria-hidden>·</span>
+                  <Money
+                    amount={Number(order.cost) * order.quantity}
+                    size="sm"
+                  />
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {formatDate(order.createdAt)}
@@ -173,6 +208,18 @@ export default function ShopOrdersPage() {
                   <p className="text-[11px] text-muted-foreground line-clamp-2">
                     {order.deliveryAddress.trim()}
                   </p>
+                )}
+                {order.status === "pending" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-1 h-8 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={cancellingId === order.id}
+                    onClick={() => void handleCancel(order)}
+                  >
+                    {cancellingId === order.id ? "Cancelling…" : "Cancel order"}
+                  </Button>
                 )}
               </div>
             </li>

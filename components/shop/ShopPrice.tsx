@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatMoney } from "@/lib/format";
 import {
   activeDiscountPercent,
   formatCountdown,
@@ -9,6 +8,7 @@ import {
   shopSalePrice,
   type PricedItem,
 } from "@/lib/shop-pricing";
+import { Money } from "@/components/Money";
 import { cn } from "@/lib/utils";
 
 type ShopPriceProps = {
@@ -97,16 +97,12 @@ export function ShopPrice({
 
   if (!onSale) {
     return (
-      <span
-        className={cn(
-          "font-semibold",
-          size === "md" ? "text-lg" : "text-[11px]",
-          light ? "text-white" : "text-foreground",
-          className,
-        )}
-      >
-        {formatMoney(sale)}
-      </span>
+      <Money
+        amount={sale}
+        size={size === "md" ? "md" : "xs"}
+        light={light}
+        className={cn(size === "sm" && !light && "text-[12px]", className)}
+      />
     );
   }
 
@@ -114,24 +110,13 @@ export function ShopPrice({
     <span
       className={cn("inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5", className)}
     >
-      <span
-        className={cn(
-          "font-extrabold tabular-nums",
-          size === "md" ? "text-lg" : "text-[12px]",
-          light ? "text-white" : "text-rose-700",
-        )}
-      >
-        {formatMoney(sale)}
-      </span>
-      <span
-        className={cn(
-          "line-through decoration-2 opacity-80",
-          size === "md" ? "text-sm" : "text-[10px]",
-          light ? "text-white/75" : "text-muted-foreground",
-        )}
-      >
-        {formatMoney(Number(item.price) || 0)}
-      </span>
+      <Money amount={sale} size={size === "md" ? "md" : "sm"} light={light} />
+      <Money
+        amount={Number(item.price) || 0}
+        size={size === "md" ? "sm" : "xs"}
+        muted
+        className={light ? "text-white/75 line-through" : undefined}
+      />
       {!hideBadge && (
         <span
           className={cn(

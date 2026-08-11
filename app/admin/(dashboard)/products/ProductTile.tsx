@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Pencil, Trash2, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StockBadge } from "@/components/StockBadge";
-import { formatMoney } from "@/lib/format";
+import { Money } from "@/components/Money";
 import type { Product } from "./types";
 import { productSkinLabels } from "./types";
 
@@ -43,9 +43,14 @@ export function ProductTile({
           <StockBadge stock={prod.stock} />
         </div>
         <div className="absolute bottom-2 left-2 right-2 sm:hidden">
-          <p className="text-[11px] font-semibold text-white drop-shadow-sm line-clamp-1">
-            {prod.price != null ? formatMoney(Number(prod.price)) : ""}
-          </p>
+          {prod.price != null ? (
+            <Money
+              amount={Number(prod.price)}
+              size="xs"
+              light
+              className="drop-shadow-sm"
+            />
+          ) : null}
         </div>
       </Link>
 
@@ -66,9 +71,11 @@ export function ProductTile({
         </p>
 
         <div className="mt-auto pt-0.5 hidden sm:flex items-end justify-between gap-2">
-          <p className="text-base font-semibold tracking-tight">
-            {prod.price != null ? formatMoney(Number(prod.price)) : "—"}
-          </p>
+          {prod.price != null ? (
+            <Money amount={Number(prod.price)} size="md" />
+          ) : (
+            <p className="text-base font-semibold tracking-tight">—</p>
+          )}
         </div>
 
         <div className="flex items-center gap-1 pt-1.5 border-t border-border/80">

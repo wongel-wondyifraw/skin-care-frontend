@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { useNetwork } from "@/components/NetworkProvider";
 import { isNetworkError } from "@/lib/errors";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { Money } from "@/components/Money";
 
 type RecentOrder = {
   id: string;
@@ -112,9 +113,15 @@ export default function DashboardPage() {
                   </p>
                   {loading ? (
                     <Skeleton className="h-7 w-16" />
+                  ) : kpi.format === "money" ? (
+                    <Money
+                      amount={Number(kpi.value)}
+                      size="lg"
+                      className="text-xl sm:text-2xl truncate"
+                    />
                   ) : (
                     <p className="text-xl sm:text-2xl font-bold text-foreground truncate">
-                      {kpi.format === "money" ? formatMoney(Number(kpi.value)) : kpi.value}
+                      {kpi.value}
                     </p>
                   )}
                 </div>
@@ -168,7 +175,7 @@ export default function DashboardPage() {
                       {" · "}
                       Qty {order.quantity ?? 1}
                       {" · "}
-                      {formatMoney(lineTotal(order))}
+                      <Money amount={lineTotal(order)} size="xs" />
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {formatDateTime(order.createdAt)}

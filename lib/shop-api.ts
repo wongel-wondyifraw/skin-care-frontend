@@ -174,3 +174,12 @@ export async function shopFetchOrders(params?: {
     pageSize: number;
   }>(`/shop/orders${qs ? `?${qs}` : ""}`);
 }
+
+export async function shopCancelOrder(orderId: string) {
+  const order = await shopFetch<ShopOrder>(`/shop/orders/${orderId}/cancel`, {
+    method: "PATCH",
+  });
+  invalidateShopCache("/shop/orders");
+  invalidateShopCache("/shop/products");
+  return order;
+}

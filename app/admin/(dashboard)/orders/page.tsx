@@ -12,7 +12,8 @@ import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
 import { isAbortError, isNetworkError } from "@/lib/errors";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { Money } from "@/components/Money";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -321,9 +322,12 @@ export default function OrdersPage() {
                     <TableCell>{o.quantity ?? 1}</TableCell>
                     <TableCell>
                       <div>
-                        <p>{formatMoney(lineTotal(o))}</p>
+                        <p>
+                          <Money amount={lineTotal(o)} size="sm" />
+                        </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {o.quantity ?? 1} × {formatMoney(unitCost(o.cost))}
+                          {o.quantity ?? 1} ×{" "}
+                          <Money amount={unitCost(o.cost)} size="xs" />
                         </p>
                       </div>
                     </TableCell>
@@ -359,7 +363,9 @@ export default function OrdersPage() {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>Qty {o.quantity ?? 1}</span>
-                  <span>{formatMoney(lineTotal(o))}</span>
+                  <span>
+                    <Money amount={lineTotal(o)} size="sm" />
+                  </span>
                   <span>{formatDateTime(o.createdAt)}</span>
                 </div>
                 {o.deliveryAddress && (
