@@ -14,13 +14,13 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export type AdminNotification = {
@@ -119,8 +119,8 @@ export function AdminNotificationsBell() {
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -139,34 +139,39 @@ export function AdminNotificationsBell() {
             </span>
           )}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-[min(100vw-1.5rem,22rem)] p-0 overflow-hidden"
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-          <DropdownMenuLabel className="p-0 text-sm font-semibold">
-            Notifications
-          </DropdownMenuLabel>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
-            disabled={loading || unreadCount === 0}
-            onClick={(e) => {
-              e.preventDefault();
-              void markAllRead();
-            }}
-          >
-            <CheckCheck className="size-3.5" />
-            Mark all read
-          </Button>
-        </div>
+      </DialogTrigger>
 
-        <div className="max-h-[min(70vh,22rem)] overflow-y-auto">
+      <DialogContent
+        showCloseButton
+        className="w-[min(100vw-1.5rem,24rem)] gap-0 overflow-hidden p-0 sm:max-w-md"
+      >
+        <DialogHeader className="space-y-0 border-b border-border px-4 py-3.5 text-left">
+          <div className="flex items-center justify-between gap-3 pr-8">
+            <div>
+              <DialogTitle className="text-base font-semibold">
+                Notifications
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Recent order activity. Select a notification to open orders.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
+              disabled={loading || unreadCount === 0}
+              onClick={() => void markAllRead()}
+            >
+              <CheckCheck className="size-3.5" />
+              Mark all read
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <div className="max-h-[min(60vh,22rem)] overflow-y-auto">
           {items.length === 0 ? (
-            <div className="px-4 py-10 text-center">
+            <div className="px-4 py-12 text-center">
               <Bell className="mx-auto mb-2 size-5 text-muted-foreground/50" />
               <p className="text-sm text-muted-foreground">
                 No notifications yet
@@ -176,60 +181,60 @@ export function AdminNotificationsBell() {
               </p>
             </div>
           ) : (
-            items.map((n) => {
-              const Icon = iconFor(n.type);
-              const unread = !n.readAt;
-              return (
-                <DropdownMenuItem
-                  key={n.id}
-                  className={cn(
-                    "cursor-pointer items-start gap-3 rounded-none border-b border-border/60 px-3 py-3 focus:bg-muted/70",
-                    unread && "bg-gold/5",
-                  )}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    void openNotification(n);
-                  }}
-                >
-                  <span
-                    className={cn(
-                      "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
-                      toneFor(n.type),
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                  </span>
-                  <span className="min-w-0 flex-1 space-y-0.5">
-                    <span className="flex items-start justify-between gap-2">
+            <ul>
+              {items.map((n) => {
+                const Icon = iconFor(n.type);
+                const unread = !n.readAt;
+                return (
+                  <li key={n.id} className="border-b border-border/60 last:border-b-0">
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/70",
+                        unread && "bg-gold/5",
+                      )}
+                      onClick={() => void openNotification(n)}
+                    >
                       <span
                         className={cn(
-                          "text-sm leading-snug",
-                          unread
-                            ? "font-semibold text-foreground"
-                            : "font-medium text-foreground/90",
+                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
+                          toneFor(n.type),
                         )}
                       >
-                        {n.title}
+                        <Icon className="size-3.5" />
                       </span>
-                      {unread && (
-                        <span className="mt-1 size-1.5 shrink-0 rounded-full bg-gold" />
-                      )}
-                    </span>
-                    <span className="block text-xs leading-snug text-muted-foreground line-clamp-2">
-                      {n.body}
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground/80">
-                      {formatDateTime(n.createdAt)}
-                    </span>
-                  </span>
-                </DropdownMenuItem>
-              );
-            })
+                      <span className="min-w-0 flex-1 space-y-0.5">
+                        <span className="flex items-start justify-between gap-2">
+                          <span
+                            className={cn(
+                              "text-sm leading-snug",
+                              unread
+                                ? "font-semibold text-foreground"
+                                : "font-medium text-foreground/90",
+                            )}
+                          >
+                            {n.title}
+                          </span>
+                          {unread && (
+                            <span className="mt-1 size-1.5 shrink-0 rounded-full bg-gold" />
+                          )}
+                        </span>
+                        <span className="block text-xs leading-snug text-muted-foreground line-clamp-2">
+                          {n.body}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground/80">
+                          {formatDateTime(n.createdAt)}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
-        <DropdownMenuSeparator className="m-0" />
-        <div className="p-1.5">
+        <div className="border-t border-border p-2">
           <Button
             asChild
             variant="ghost"
@@ -239,7 +244,7 @@ export function AdminNotificationsBell() {
             <Link href="/admin/orders">View all orders</Link>
           </Button>
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DialogContent>
+    </Dialog>
   );
 }
