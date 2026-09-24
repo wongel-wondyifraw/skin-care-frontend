@@ -36,6 +36,8 @@ import {
 } from "@/lib/shop-api";
 import { shopSalePrice } from "@/lib/shop-pricing";
 import { cn } from "@/lib/utils";
+import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
+import { DeliveryRouteMap } from "@/components/location/DeliveryRouteMap";
 
 type CheckoutLine = {
   productId: string;
@@ -49,6 +51,8 @@ type CheckoutLine = {
 type ShopCheckoutFormProps = {
   lines: CheckoutLine[];
   defaultAddress?: string | null;
+  defaultLat?: number | null;
+  defaultLon?: number | null;
   onSuccess?: () => void;
   submitLabel?: string;
 };
@@ -56,6 +60,8 @@ type ShopCheckoutFormProps = {
 export function ShopCheckoutForm({
   lines,
   defaultAddress = "",
+  defaultLat,
+  defaultLon,
   onSuccess,
 }: ShopCheckoutFormProps) {
   const router = useRouter();
@@ -65,11 +71,14 @@ export function ShopCheckoutForm({
     useState<FulfilmentType>("delivery");
   const [address, setAddress] = useState(defaultAddress ?? "");
   const [isEditingAddress, setIsEditingAddress] = useState(
-    !defaultAddress || !defaultAddress.trim(),
+    !defaultAddress || !defaultAddress.trim() || !defaultLat || !defaultLon,
   );
+  const [customerLat, setCustomerLat] = useState<number | undefined>(defaultLat ?? undefined);
+  const [customerLon, setCustomerLon] = useState<number | undefined>(defaultLon ?? undefined);
   const [deliveryFee, setDeliveryFee] = useState<number>(350);
-  const [deliveryZone, setDeliveryZone] = useState<string>("Standard");
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | undefined>();
   const [calculatingFee, setCalculatingFee] = useState(false);
+  const [outOfBounds, setOutOfBounds] = useState(false);
 
   // Pickup locations state
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
@@ -113,33 +122,37 @@ export function ShopCheckoutForm({
 
   // Sync default address when provided
   useEffect(() => {
-    if (defaultAddress && defaultAddress.trim()) {
+    if (defaultAddress && defaultAddress.trim() && defaultLat && defaultLon) {
       setAddress(defaultAddress.trim());
+      setCustomerLat(defaultLat);
+      setCustomerLon(defaultLon);
       setIsEditingAddress(false);
     } else {
       setIsEditingAddress(true);
     }
-  }, [defaultAddress]);
+  }, [defaultAddress, defaultLat, defaultLon]);
 
-  // Recalculate delivery fee when address changes (debounced)
+  // Recalculate delivery fee when address changes
   useEffect(() => {
     if (fulfilmentType !== "delivery") {
       setDeliveryFee(0);
+      setOutOfBounds(false);
       return;
     }
 
-    if (!address.trim()) {
+    if (!customerLat || !customerLon) {
       setDeliveryFee(350);
-      setDeliveryZone("Standard");
+      setOutOfBounds(false);
       return;
     }
 
     const timer = setTimeout(() => {
       setCalculatingFee(true);
-      shopFetchDeliveryFee(address)
+      shopFetchDeliveryFee(customerLat, customerLon)
         .then((res) => {
           setDeliveryFee(res.fee);
-          setDeliveryZone(res.zone);
+          setDeliveryDistanceKm(res.distanceKm);
+          setOutOfBounds(!res.withinRadius);
         })
         .catch(() => {
           setDeliveryFee(350);
@@ -148,7 +161,7 @@ export function ShopCheckoutForm({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [address, fulfilmentType]);
+  }, [customerLat, customerLon, fulfilmentType]);
 
   // Handle screenshot upload preview
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -197,9 +210,14 @@ export function ShopCheckoutForm({
     e.preventDefault();
     if (!lines.length) return;
 
-    if (fulfilmentType === "delivery" && !address.trim()) {
-      setError("Please enter your delivery address to continue.");
+    if (fulfilmentType === "delivery" && (!customerLat || !customerLon)) {
+      setError("Please search and select your delivery location to continue.");
       setIsEditingAddress(true);
+      return;
+    }
+
+    if (fulfilmentType === "delivery" && outOfBounds) {
+      setError("This location is outside our delivery area. Please choose Store Pickup or a closer address.");
       return;
     }
 
@@ -232,6 +250,12 @@ export function ShopCheckoutForm({
         })),
         deliveryAddress:
           fulfilmentType === "delivery" ? address.trim() : undefined,
+        deliveryLat:
+          fulfilmentType === "delivery" ? customerLat : undefined,
+        deliveryLon:
+          fulfilmentType === "delivery" ? customerLon : undefined,
+        deliveryDistanceKm:
+          fulfilmentType === "delivery" ? deliveryDistanceKm : undefined,
         fulfilmentType,
         pickupLocationId:
           fulfilmentType === "pickup" ? selectedPickupId : undefined,
@@ -433,7 +457,7 @@ export function ShopCheckoutForm({
                       <MapPin className="size-3.5" />
                     </span>
                     <span className="text-xs font-semibold text-foreground">
-                      Delivery Address
+                      Delivery Location
                     </span>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                       From Profile
@@ -450,9 +474,14 @@ export function ShopCheckoutForm({
                     Change
                   </Button>
                 </div>
+                
                 <p className="text-xs text-foreground bg-muted/30 p-2.5 rounded-xl border border-border/60">
                   {address}
                 </p>
+
+                {customerLat && customerLon && (
+                  <DeliveryRouteMap customerLat={customerLat} customerLon={customerLon} />
+                )}
               </div>
             ) : (
               /* Prompt user for address */
@@ -460,7 +489,7 @@ export function ShopCheckoutForm({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <MapPin className="size-4 text-primary" />
-                    <span>Enter Delivery Address</span>
+                    <span>Search Delivery Location</span>
                   </div>
                   {hasProfileAddress && (
                     <Button
@@ -470,32 +499,40 @@ export function ShopCheckoutForm({
                       className="h-6 text-[11px] text-muted-foreground"
                       onClick={() => {
                         setAddress(defaultAddress!.trim());
+                        setCustomerLat(defaultLat!);
+                        setCustomerLon(defaultLon!);
                         setIsEditingAddress(false);
                       }}
                     >
-                      Use saved address
+                      Use saved location
                     </Button>
                   )}
                 </div>
 
                 {!hasProfileAddress && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-900 dark:text-amber-200 mb-2">
                     <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-[11px] leading-tight">
-                      No saved address found on your profile. Please provide your
-                      delivery location in Addis Ababa.
+                      No saved location found on your profile. Please search and select your exact delivery location.
                     </p>
                   </div>
                 )}
 
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows={2}
-                  placeholder="E.g., Bole Medhanialem, Near Edna Mall, House #402, Addis Ababa"
-                  className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                  required
+                <LocationSearch
+                  defaultValue={address}
+                  placeholder="E.g., Bole Medhanialem..."
+                  onSelect={(loc) => {
+                    setAddress(loc.display_name);
+                    setCustomerLat(parseFloat(loc.lat));
+                    setCustomerLon(parseFloat(loc.lon));
+                  }}
                 />
+
+                {customerLat && customerLon && (
+                  <div className="mt-4">
+                    <DeliveryRouteMap customerLat={customerLat} customerLon={customerLon} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -511,14 +548,26 @@ export function ShopCheckoutForm({
               </div>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5">
-                  <Truck className="size-3.5" /> Delivery Fee ({deliveryZone}):
+                  <Truck className="size-3.5" /> Delivery Fee:
                 </span>
                 <span className="font-semibold text-primary">
                   {calculatingFee
                     ? "Calculating…"
+                    : outOfBounds
+                    ? "Out of Delivery Zone"
                     : `${deliveryFee.toFixed(2)} ETB`}
                 </span>
               </div>
+              {deliveryDistanceKm && (
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <MapPin className="size-3.5" /> Distance:
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {deliveryDistanceKm} km
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ) : (

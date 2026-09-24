@@ -8,6 +8,8 @@ export type ShopCustomer = {
   initials: string;
   phone?: string;
   address?: string | null;
+  locationLat?: number | null;
+  locationLon?: number | null;
   skinType?: { id: string; name: string } | null;
   telegramId?: number;
 };
@@ -192,6 +194,9 @@ export async function shopFetchMe() {
 export async function shopCreateOrders(body: {
   items: { productId: string; quantity: number }[];
   deliveryAddress?: string;
+  deliveryLat?: number;
+  deliveryLon?: number;
+  deliveryDistanceKm?: number;
   fulfilmentType?: FulfilmentType;
   pickupLocationId?: string;
   deliveryFee?: number;
@@ -260,9 +265,21 @@ export async function shopFetchDeliveryZones() {
   return shopFetch<DeliveryZone[]>("/shop/delivery-zones");
 }
 
-export async function shopFetchDeliveryFee(address?: string) {
-  const qs = address ? `?address=${encodeURIComponent(address)}` : "";
-  return shopFetch<{ zone: string; fee: number }>(`/shop/delivery-fee${qs}`);
+export async function shopFetchDeliveryFee(lat?: number, lon?: number) {
+  let qs = "";
+  if (lat !== undefined && lon !== undefined) {
+    qs = `?lat=${lat}&lon=${lon}`;
+  }
+  return shopFetch<{ distanceKm: number; fee: number; durationMinutes: number; withinRadius: boolean }>(`/shop/delivery-fee${qs}`);
+}
+
+export async function shopAutocomplete(query: string) {
+  const qs = `?q=${encodeURIComponent(query)}`;
+  return shopFetch<{ place_id: string; display_name: string; lat: string; lon: string }[]>(`/location/autocomplete${qs}`);
+}
+
+export async function shopFetchMapConfig() {
+  return shopFetch<{ key: string }>("/settings/locationiq-key");
 }
 
 export async function shopFetchPickupLocations() {

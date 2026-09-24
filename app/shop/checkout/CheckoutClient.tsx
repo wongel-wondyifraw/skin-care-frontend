@@ -139,6 +139,8 @@ export default function CheckoutClient() {
             },
           ]}
           defaultAddress={customer?.address}
+          defaultLat={customer?.locationLat}
+          defaultLon={customer?.locationLon}
           submitLabel="Place order"
         />
       </div>

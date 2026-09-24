@@ -203,6 +203,8 @@ export default function ShopCartPage() {
             discountEndsAt: item.discountEndsAt,
           }))}
           defaultAddress={customer?.address}
+          defaultLat={customer?.locationLat}
+          defaultLon={customer?.locationLon}
           onSuccess={clear}
           submitLabel="Place order for cart"
         />
