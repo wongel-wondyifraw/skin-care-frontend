@@ -320,7 +320,7 @@ function ProfileSection() {
           </div>
         </div>
 
-        <div className="space-y-5 max-w-md w-full">
+        <div className="space-y-5 max-w-2xl w-full">
           <div className="space-y-1.5">
             <Label htmlFor="profile-name">Display name</Label>
             <Input
@@ -1392,11 +1392,11 @@ function PaymentSection() {
         </Button>
       }
     >
-      <div className="space-y-6 max-w-xl">
+      <div className="space-y-6 w-full">
         {loading ? (
           <Skeleton className="h-48 w-full rounded-xl" />
         ) : (
-          <>
+          <div className="grid gap-5 md:grid-cols-2">
             {/* Bank details */}
             <div className="space-y-3 rounded-xl border border-border p-4 bg-muted/20">
               <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
@@ -1490,7 +1490,7 @@ function PaymentSection() {
                 />
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </SettingsShell>
@@ -1545,7 +1545,7 @@ function SupportSection() {
         </Button>
       }
     >
-      <div className="space-y-4 max-w-md">
+      <div className="space-y-4 max-w-xl">
         {loading ? (
           <Skeleton className="h-20 w-full rounded-xl" />
         ) : (
@@ -1591,7 +1591,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="w-full">
       {/* ── Mobile hub ─────────────────────────────────────────── */}
       <div className={cn("lg:hidden", mobileOpen && "hidden")}>
         <div className="mb-5 space-y-1 px-0.5">
@@ -1691,10 +1691,10 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <div className="flex items-start gap-5">
+        <div className="flex items-start gap-6">
           <nav
             aria-label="Settings sections"
-            className="sticky top-4 w-56 shrink-0"
+            className="sticky top-4 w-60 lg:w-64 shrink-0"
           >
             <div className="flex flex-col gap-0.5 rounded-2xl border border-border bg-card p-2 shadow-sm">
               {SECTIONS.map(({ id, label, hint, Icon }) => {
