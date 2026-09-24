@@ -26,6 +26,7 @@ import {
   PhoneCall,
   Plus,
   Trash2,
+  MapPin,
 } from "lucide-react";
 import Image from "next/image";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
@@ -41,6 +42,7 @@ import { formatCountdown } from "@/lib/shop-pricing";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/Money";
 import { cn } from "@/lib/utils";
+import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
 
 type SectionId =
   | "profile"
@@ -1175,61 +1177,44 @@ function TeamSection() {
 }
 
 /* ────────────────────────────────────────────────────────────── */
-/*  Delivery Zones Section                                        */
+/*  Delivery Configuration Section                                */
 /* ────────────────────────────────────────────────────────────── */
-
-type DeliveryZoneItem = {
-  name: string;
-  fee: number;
-  keywords: string[];
-};
 
 function DeliverySection() {
   const toast = useToast();
-  const [zones, setZones] = useState<DeliveryZoneItem[]>([]);
+  
+  const [origin, setOrigin] = useState({ lat: 0, lon: 0, displayAddress: "" });
+  const [rate, setRate] = useState({ ratePerKm: 25, minFee: 50, maxRadiusKm: 30 });
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiFetch<DeliveryZoneItem[]>("/settings/delivery-zones")
-      .then((data) => setZones(data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      apiFetch<any>("/settings/delivery-origin").catch(() => null),
+      apiFetch<any>("/settings/delivery-rate").catch(() => null),
+    ]).then(([originData, rateData]) => {
+      if (originData && originData.lat) setOrigin(originData);
+      if (rateData && typeof rateData.ratePerKm === 'number') setRate(rateData);
+    }).finally(() => setLoading(false));
   }, []);
-
-  function addZone() {
-    setZones((prev) => [
-      ...prev,
-      { name: "New Zone", fee: 300, keywords: ["area"] },
-    ]);
-  }
-
-  function removeZone(index: number) {
-    setZones((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateZone(
-    index: number,
-    field: keyof DeliveryZoneItem,
-    val: string | number | string[],
-  ) {
-    setZones((prev) =>
-      prev.map((z, i) => (i === index ? { ...z, [field]: val } : z)),
-    );
-  }
 
   async function handleSave() {
     setSaving(true);
     try {
-      await apiFetch("/settings/delivery-zones", {
+      await apiFetch("/settings/delivery-origin", {
         method: "PUT",
-        body: JSON.stringify({ zones }),
+        body: JSON.stringify(origin),
+      });
+      await apiFetch("/settings/delivery-rate", {
+        method: "PUT",
+        body: JSON.stringify(rate),
       });
       invalidateApiCache("/settings");
-      toast.success("Delivery zones saved");
+      toast.success("Delivery configuration saved");
     } catch (err: unknown) {
       toast.error(
-        "Failed to save zones",
+        "Failed to save configuration",
         err instanceof Error ? err.message : "Please try again",
       );
     } finally {
@@ -1239,85 +1224,83 @@ function DeliverySection() {
 
   return (
     <SettingsShell
-      title="Delivery Zones & Fees"
-      description="Configure location-based delivery pricing (ETB 220–500) and address matching keywords."
+      title="Delivery Configuration"
+      description="Set your shop's home origin address and per-km pricing logic."
       action={
         <Button onClick={handleSave} disabled={saving} className="rounded-full">
           {saving ? "Saving…" : "Save changes"}
         </Button>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-6">
         {loading ? (
           <Skeleton className="h-40 w-full rounded-xl" />
         ) : (
-          <div className="space-y-3">
-            {zones.map((zone, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3.5 rounded-xl border border-border bg-muted/20"
-              >
-                <div className="flex-1 w-full space-y-1">
-                  <Label className="text-xs">Zone Name</Label>
-                  <Input
-                    value={zone.name}
-                    onChange={(e) => updateZone(idx, "name", e.target.value)}
-                    placeholder="E.g., Bole / CMC"
-                  />
-                </div>
-                <div className="w-full sm:w-32 space-y-1">
-                  <Label className="text-xs">Fee (ETB)</Label>
-                  <Input
-                    type="number"
-                    value={zone.fee}
-                    onChange={(e) =>
-                      updateZone(idx, "fee", Number(e.target.value))
-                    }
-                  />
-                </div>
-                <div className="flex-[2] w-full space-y-1">
-                  <Label className="text-xs">Keywords (comma-separated)</Label>
-                  <Input
-                    value={
-                      Array.isArray(zone.keywords)
-                        ? zone.keywords.join(", ")
-                        : ""
-                    }
-                    onChange={(e) =>
-                      updateZone(
-                        idx,
-                        "keywords",
-                        e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      )
-                    }
-                    placeholder="bole, cmc, gerji"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="sm:mt-5 text-destructive hover:bg-destructive/10"
-                  onClick={() => removeZone(idx)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+          <>
+            <div className="space-y-4 rounded-xl border border-border p-4 bg-muted/20">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <MapPin className="size-4 text-primary" /> Shop Origin Address
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                This address serves as the starting point for all distance calculations.
+              </p>
+              
+              <div className="space-y-2 relative">
+                <Label>Search & Set Origin Location</Label>
+                <LocationSearch 
+                  placeholder="E.g., Bole Medhanialem..."
+                  defaultValue={origin.displayAddress}
+                  onSelect={(loc) => {
+                    setOrigin({
+                      displayAddress: loc.display_name,
+                      lat: parseFloat(loc.lat),
+                      lon: parseFloat(loc.lon)
+                    });
+                  }}
+                />
               </div>
-            ))}
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addZone}
-              className="gap-1.5"
-            >
-              <Plus className="size-3.5" /> Add Delivery Zone
-            </Button>
-          </div>
+              {origin.lat !== 0 && (
+                <div className="pt-2 text-xs text-muted-foreground flex flex-col gap-1">
+                  <div><strong>Current Address:</strong> {origin.displayAddress}</div>
+                  <div><strong>Coordinates:</strong> {origin.lat.toFixed(6)}, {origin.lon.toFixed(6)}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 rounded-xl border border-border p-4 bg-muted/20">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Truck className="size-4 text-primary" /> Delivery Pricing Logic
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Rate per KM (ETB)</Label>
+                  <Input 
+                    type="number"
+                    value={rate.ratePerKm}
+                    onChange={(e) => setRate({ ...rate, ratePerKm: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Minimum Fee (ETB)</Label>
+                  <Input 
+                    type="number"
+                    value={rate.minFee}
+                    onChange={(e) => setRate({ ...rate, minFee: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Max Radius (KM)</Label>
+                  <Input 
+                    type="number"
+                    value={rate.maxRadiusKm}
+                    onChange={(e) => setRate({ ...rate, maxRadiusKm: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </SettingsShell>

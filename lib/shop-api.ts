@@ -279,7 +279,7 @@ export async function shopAutocomplete(query: string) {
 }
 
 export async function shopFetchMapConfig() {
-  return shopFetch<{ key: string }>("/settings/locationiq-key");
+  return shopFetch<{ key: string }>("/location/config");
 }
 
 export async function shopFetchPickupLocations() {
