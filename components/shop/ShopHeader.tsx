@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
+import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 
 export function ShopHeader() {
   const { customer, status } = useShopAuth();
@@ -16,6 +17,7 @@ export function ShopHeader() {
     <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-2.5">
       <BrandLogo href="/shop" size="sm" stacked priority />
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+        <ShopSupportContact compact className="hidden md:inline-flex mr-1 text-[11px]" />
         {status === "ready" && (
           <>
             <Link

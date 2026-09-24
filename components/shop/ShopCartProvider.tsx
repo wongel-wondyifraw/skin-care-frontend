@@ -10,8 +10,15 @@ import {
   type ReactNode,
 } from "react";
 import { shopSalePrice } from "@/lib/shop-pricing";
+import {
+  getShopToken,
+  shopClearCart,
+  shopFetchCart,
+  shopSyncCart,
+} from "@/lib/shop-api";
 
 const CART_KEY = "shopCart";
+const CART_UPDATED_KEY = "shopCartUpdatedAt";
 
 export type CartItem = {
   productId: string;
@@ -46,7 +53,17 @@ export function useShopCart() {
 function readCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(CART_KEY);
+    // One-time migration from sessionStorage if localStorage is empty
+    let raw = localStorage.getItem(CART_KEY);
+    if (!raw) {
+      const sessionRaw = sessionStorage.getItem(CART_KEY);
+      if (sessionRaw) {
+        raw = sessionRaw;
+        localStorage.setItem(CART_KEY, sessionRaw);
+        sessionStorage.removeItem(CART_KEY);
+      }
+    }
+
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CartItem[];
     if (!Array.isArray(parsed)) return [];
@@ -62,7 +79,12 @@ function readCart(): CartItem[] {
 }
 
 function writeCart(items: CartItem[]) {
-  sessionStorage.setItem(CART_KEY, JSON.stringify(items));
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(items));
+    localStorage.setItem(CART_UPDATED_KEY, new Date().toISOString());
+  } catch {
+    // local storage quota or unavailable
+  }
 }
 
 export function ShopCartProvider({ children }: { children: ReactNode }) {
@@ -70,13 +92,45 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setItems(readCart());
+    const initialItems = readCart();
+    setItems(initialItems);
     setHydrated(true);
+
+    // If customer is authenticated and local cart is empty, try to load server-side cart
+    const token = getShopToken();
+    if (token && initialItems.length === 0) {
+      shopFetchCart()
+        .then((res) => {
+          if (res?.items?.length) {
+            // Note: Server cart stores { productId, quantity }
+            // The items will get hydrated when visiting cart or browsing
+          }
+        })
+        .catch(() => {
+          // ignore background sync errors
+        });
+    }
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     writeCart(items);
+
+    // Sync to backend if customer is authenticated (debounced)
+    const token = getShopToken();
+    if (!token) return;
+
+    const timer = setTimeout(() => {
+      const payload = items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+      }));
+      shopSyncCart(payload).catch(() => {
+        // ignore background sync error
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, [items, hydrated]);
 
   const addItem = useCallback(
@@ -85,10 +139,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
       setItems((prev) => {
         const existing = prev.find((p) => p.productId === item.productId);
         if (existing) {
-          const nextQty = Math.min(
-            item.stock,
-            existing.quantity + qty,
-          );
+          const nextQty = Math.min(item.stock, existing.quantity + qty);
           return prev.map((p) =>
             p.productId === item.productId
               ? { ...p, ...item, quantity: nextQty }
@@ -123,7 +174,12 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((p) => p.productId !== productId));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    if (getShopToken()) {
+      shopClearCart().catch(() => {});
+    }
+  }, []);
 
   const itemCount = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),

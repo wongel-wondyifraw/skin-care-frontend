@@ -1,7 +1,13 @@
-import { Check, Clock, X } from "lucide-react";
+import { Check, Clock, CreditCard, ShieldCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type OrderStatus = "pending" | "delivered" | "cancelled";
+export type OrderStatus =
+  | "awaiting_payment"
+  | "payment_submitted"
+  | "pending"
+  | "confirmed"
+  | "delivered"
+  | "cancelled";
 
 const STATUS_META: Record<
   OrderStatus,
@@ -12,23 +18,41 @@ const STATUS_META: Record<
     icon: string;
   }
 > = {
+  awaiting_payment: {
+    label: "Awaiting Payment",
+    Icon: CreditCard,
+    wrap: "bg-amber-50 text-amber-800 border border-amber-200/50",
+    icon: "text-amber-600",
+  },
+  payment_submitted: {
+    label: "Payment Submitted",
+    Icon: Clock,
+    wrap: "bg-blue-50 text-blue-700 border border-blue-200/50",
+    icon: "text-blue-600",
+  },
+  confirmed: {
+    label: "Confirmed",
+    Icon: ShieldCheck,
+    wrap: "bg-emerald-50 text-emerald-700 border border-emerald-200/50",
+    icon: "text-emerald-600",
+  },
   delivered: {
     label: "Delivered",
     Icon: Check,
-    wrap: "bg-emerald-50 text-emerald-700",
-    icon: "text-emerald-600",
+    wrap: "bg-teal-50 text-teal-700 border border-teal-200/50",
+    icon: "text-teal-600",
   },
   cancelled: {
     label: "Cancelled",
     Icon: X,
-    wrap: "bg-rose-50 text-rose-700",
+    wrap: "bg-rose-50 text-rose-700 border border-rose-200/50",
     icon: "text-rose-600",
   },
   pending: {
     label: "Pending",
     Icon: Clock,
-    wrap: "bg-amber-50 text-amber-800",
-    icon: "text-amber-600",
+    wrap: "bg-slate-50 text-slate-700 border border-slate-200/50",
+    icon: "text-slate-600",
   },
 };
 
@@ -64,7 +88,7 @@ export function OrderStatusIndicator({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
         meta.wrap,
         className,
       )}

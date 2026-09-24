@@ -12,7 +12,40 @@ export type ShopCustomer = {
   telegramId?: number;
 };
 
-export type ShopOrderStatus = "pending" | "delivered" | "cancelled";
+export type ShopOrderStatus =
+  | "awaiting_payment"
+  | "payment_submitted"
+  | "pending"
+  | "confirmed"
+  | "delivered"
+  | "cancelled";
+
+export type FulfilmentType = "delivery" | "pickup";
+
+export type PickupLocation = {
+  id: string;
+  name: string;
+  address: string;
+  enabled: boolean;
+};
+
+export type DeliveryZone = {
+  name: string;
+  fee: number;
+  keywords: string[];
+};
+
+export type PaymentInfo = {
+  bankAccount: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
+  telebirr: {
+    phoneNumber: string;
+    accountName: string;
+  };
+};
 
 export type ShopOrder = {
   id: string;
@@ -20,6 +53,16 @@ export type ShopOrder = {
   cost: number;
   quantity: number;
   deliveryAddress?: string | null;
+  fulfilmentType?: FulfilmentType;
+  pickupLocationId?: string | null;
+  pickupLocation?: PickupLocation | null;
+  deliveryFee?: number;
+  expectedDeliveryDate?: string | null;
+  advancePaymentAmount?: number;
+  paymentMethod?: string | null;
+  paymentEvidence?: string | null;
+  paymentSubmittedAt?: string | null;
+  paymentVerifiedAt?: string | null;
   createdAt: string;
   product?: {
     id: string;
@@ -147,6 +190,11 @@ export async function shopFetchMe() {
 export async function shopCreateOrders(body: {
   items: { productId: string; quantity: number }[];
   deliveryAddress?: string;
+  fulfilmentType?: FulfilmentType;
+  pickupLocationId?: string;
+  deliveryFee?: number;
+  paymentMethod?: string;
+  paymentEvidence?: string;
 }) {
   const orders = await shopFetch<ShopOrder[]>("/shop/orders", {
     method: "POST",
@@ -183,3 +231,84 @@ export async function shopCancelOrder(orderId: string) {
   invalidateShopCache("/shop/products");
   return order;
 }
+
+export async function shopFetchCart() {
+  return shopFetch<{
+    customerId: string;
+    items: { productId: string; quantity: number }[];
+  }>("/shop/cart");
+}
+
+export async function shopSyncCart(
+  items: { productId: string; quantity: number }[],
+) {
+  return shopFetch("/shop/cart", {
+    method: "PUT",
+    body: JSON.stringify({ items }),
+  });
+}
+
+export async function shopClearCart() {
+  return shopFetch("/shop/cart", {
+    method: "DELETE",
+  });
+}
+
+export async function shopFetchDeliveryZones() {
+  return shopFetch<DeliveryZone[]>("/shop/delivery-zones");
+}
+
+export async function shopFetchDeliveryFee(address?: string) {
+  const qs = address ? `?address=${encodeURIComponent(address)}` : "";
+  return shopFetch<{ zone: string; fee: number }>(`/shop/delivery-fee${qs}`);
+}
+
+export async function shopFetchPickupLocations() {
+  return shopFetch<PickupLocation[]>("/shop/pickup-locations");
+}
+
+export async function shopFetchPaymentInfo() {
+  return shopFetch<PaymentInfo>("/shop/payment-info");
+}
+
+export async function shopSubmitPayment(
+  orderId: string,
+  body: { paymentMethod: "bank" | "telebirr"; paymentEvidence: string },
+) {
+  const order = await shopFetch<ShopOrder>(`/shop/orders/${orderId}/payment`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  invalidateShopCache("/shop/orders");
+  return order;
+}
+
+export async function shopFetchSupportPhone() {
+  return shopFetch<{ supportPhone: string }>("/shop/support-phone");
+}
+
+export async function shopUploadReceipt(file: File): Promise<string> {
+  const token = getShopToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${shopBaseUrl()}/shop/upload-receipt`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ShopApiError(
+      body?.message || "Failed to upload receipt",
+      res.status,
+    );
+  }
+
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+

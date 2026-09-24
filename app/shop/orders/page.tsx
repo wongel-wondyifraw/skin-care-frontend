@@ -7,19 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { Money } from "@/components/Money";
+import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import {
   shopCancelOrder,
   shopFetchOrders,
+  shopSubmitPayment,
+  shopUploadReceipt,
+  shopFetchPaymentInfo,
   ShopApiError,
   type ShopOrder,
   type ShopOrderStatus,
+  type PaymentInfo,
 } from "@/lib/shop-api";
 
 const FILTERS: { value: ShopOrderStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "pending", label: "Pending" },
+  { value: "awaiting_payment", label: "Awaiting Pay" },
+  { value: "payment_submitted", label: "Under Review" },
+  { value: "confirmed", label: "Confirmed" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
 ];
@@ -35,6 +42,19 @@ function formatDate(value: string) {
   }
 }
 
+function formatExpected(value?: string | null) {
+  if (!value) return "Tomorrow";
+  try {
+    return new Date(value).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "Tomorrow";
+  }
+}
+
 export default function ShopOrdersPage() {
   const { status, error: authError, retry } = useShopAuth();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
@@ -42,6 +62,23 @@ export default function ShopOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Payment modal state
+  const [payingOrder, setPayingOrder] = useState<ShopOrder | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [payMethod, setPayMethod] = useState<"bank" | "telebirr">("bank");
+  const [payEvidenceText, setPayEvidenceText] = useState("");
+  const [payEvidenceFile, setPayEvidenceFile] = useState<File | null>(null);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [paymentModalError, setPaymentModalError] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    shopFetchPaymentInfo()
+      .then((p) => setPaymentInfo(p))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -74,7 +111,9 @@ export default function ShopOrdersPage() {
   }, [status, filter]);
 
   async function handleCancel(order: ShopOrder) {
-    if (order.status !== "pending") return;
+    const cancellable = ["pending", "awaiting_payment", "payment_submitted"];
+    if (!cancellable.includes(order.status)) return;
+
     const ok = window.confirm(
       `Cancel order for ${order.product?.name ?? "this product"}?`,
     );
@@ -98,6 +137,55 @@ export default function ShopOrdersPage() {
       );
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  async function handlePayEvidenceSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payingOrder) return;
+
+    setSubmittingPayment(true);
+    setPaymentModalError(null);
+
+    try {
+      let evidence = payEvidenceText.trim();
+      if (payEvidenceFile) {
+        try {
+          evidence = await shopUploadReceipt(payEvidenceFile);
+        } catch {
+          if (!evidence) {
+            evidence = "Receipt uploaded by customer";
+          }
+        }
+      }
+
+      if (!evidence) {
+        setPaymentModalError(
+          "Please upload a screenshot or enter your transaction reference number.",
+        );
+        setSubmittingPayment(false);
+        return;
+      }
+
+      const updated = await shopSubmitPayment(payingOrder.id, {
+        paymentMethod: payMethod,
+        paymentEvidence: evidence,
+      });
+
+      setOrders((prev) =>
+        prev.map((o) => (o.id === payingOrder.id ? { ...o, ...updated } : o)),
+      );
+      setPayingOrder(null);
+      setPayEvidenceFile(null);
+      setPayEvidenceText("");
+    } catch (err) {
+      setPaymentModalError(
+        err instanceof ShopApiError
+          ? err.message
+          : "Could not submit payment. Please try again.",
+      );
+    } finally {
+      setSubmittingPayment(false);
     }
   }
 
@@ -130,18 +218,18 @@ export default function ShopOrdersPage() {
       <div>
         <h1 className="text-lg font-semibold tracking-tight">My orders</h1>
         <p className="text-xs text-muted-foreground">
-          Track status for every order you placed in the shop.
+          Track status and payment for every order you placed in the shop.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1">
         {FILTERS.map((f) => (
           <Button
             key={f.value}
             type="button"
             size="sm"
             variant={filter === f.value ? "default" : "outline"}
-            className="h-8 rounded-full px-3 text-xs"
+            className="h-7 rounded-full px-2.5 text-xs whitespace-nowrap"
             onClick={() => setFilter(f.value)}
           >
             {f.label}
@@ -158,73 +246,281 @@ export default function ShopOrdersPage() {
       {loading ? (
         <div className="space-y-3" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
           ))}
         </div>
       ) : orders.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">No orders yet.</p>
+          <p className="text-sm text-muted-foreground">No orders found.</p>
           <Button asChild>
             <Link href="/shop">Browse products</Link>
           </Button>
         </div>
       ) : (
         <ul className="space-y-3">
-          {orders.map((order) => (
-            <li
-              key={order.id}
-              className="flex gap-3 rounded-2xl border border-border bg-card p-3"
-            >
-              <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-                {order.product?.image ? (
-                  <Image
-                    src={order.product.image}
-                    alt={order.product.name ?? "Product"}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                  />
-                ) : null}
-              </div>
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold line-clamp-2">
-                    {order.product?.name ?? "Product"}
-                  </p>
-                  <OrderStatusIndicator status={order.status} showLabel />
+          {orders.map((order) => {
+            const cancellable = [
+              "pending",
+              "awaiting_payment",
+              "payment_submitted",
+            ];
+            const isPickup = order.fulfilmentType === "pickup";
+            const total = Number(order.cost) * order.quantity;
+            const advance =
+              order.advancePaymentAmount != null
+                ? Number(order.advancePaymentAmount)
+                : total * 0.5;
+
+            return (
+              <li
+                key={order.id}
+                className="flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-3.5 shadow-2xs"
+              >
+                <div className="flex gap-3">
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+                    {order.product?.image ? (
+                      <Image
+                        src={order.product.image}
+                        alt={order.product.name ?? "Product"}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold line-clamp-1">
+                        {order.product?.name ?? "Product"}
+                      </p>
+                      <OrderStatusIndicator status={order.status} showLabel />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span>Qty {order.quantity}</span>
+                      <span aria-hidden>·</span>
+                      <Money amount={total} size="sm" />
+                    </p>
+
+                    <p className="text-[11px] text-muted-foreground">
+                      Ordered: {formatDate(order.createdAt)}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span>Qty {order.quantity}</span>
-                  <span aria-hidden>·</span>
-                  <Money
-                    amount={Number(order.cost) * order.quantity}
-                    size="sm"
-                  />
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {formatDate(order.createdAt)}
-                </p>
-                {order.deliveryAddress?.trim() && (
-                  <p className="text-[11px] text-muted-foreground line-clamp-2">
-                    {order.deliveryAddress.trim()}
-                  </p>
-                )}
-                {order.status === "pending" && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 h-8 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={cancellingId === order.id}
-                    onClick={() => void handleCancel(order)}
-                  >
-                    {cancellingId === order.id ? "Cancelling…" : "Cancel order"}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
+
+                {/* Fulfilment & Expected Date Details */}
+                <div className="rounded-xl bg-muted/40 p-2 text-[11px] space-y-1 text-muted-foreground">
+                  <div className="flex justify-between items-center">
+                    <span>
+                      {isPickup ? "📍 Store Pickup" : "🚚 Delivery to:"}
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {isPickup
+                        ? order.pickupLocation?.name || "Medaf Branch"
+                        : order.deliveryAddress?.trim() || "Address on file"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>📅 Expected:</span>
+                    <span className="font-semibold text-emerald-800">
+                      {formatExpected(order.expectedDeliveryDate)}
+                    </span>
+                  </div>
+                  {order.advancePaymentAmount != null && (
+                    <div className="flex justify-between items-center border-t border-border/40 pt-1">
+                      <span>50% Advance:</span>
+                      <span className="font-semibold text-foreground">
+                        {advance.toFixed(2)} ETB
+                      </span>
+                    </div>
+                  )}
+                  {order.paymentEvidence && (
+                    <div className="flex justify-between items-center text-[10px] text-emerald-700">
+                      <span>Receipt submitted via:</span>
+                      <span className="font-mono capitalize">
+                        {order.paymentMethod || "Evidence"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 pt-0.5">
+                  {order.status === "awaiting_payment" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl flex-1"
+                      onClick={() => setPayingOrder(order)}
+                    >
+                      💳 Pay 50% Advance ({advance.toFixed(2)} ETB)
+                    </Button>
+                  )}
+
+                  {cancellable.includes(order.status) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive text-xs rounded-xl"
+                      disabled={cancellingId === order.id}
+                      onClick={() => void handleCancel(order)}
+                    >
+                      {cancellingId === order.id ? "Cancelling…" : "Cancel"}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      {/* Support number reminder */}
+      <ShopSupportContact className="mt-4" />
+
+      {/* Pay 50% Modal */}
+      {payingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-card border border-border w-full max-w-md rounded-3xl p-5 space-y-4 shadow-xl">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-bold text-base text-foreground">
+                  Submit 50% Payment Evidence
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {payingOrder.product?.name} · Advance:{" "}
+                  <span className="font-semibold text-emerald-700">
+                    {(
+                      Number(payingOrder.advancePaymentAmount) ||
+                      Number(payingOrder.cost) * payingOrder.quantity * 0.5
+                    ).toFixed(2)}{" "}
+                    ETB
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPayingOrder(null)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handlePayEvidenceSubmit} className="space-y-3.5">
+              {/* Method choice */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPayMethod("bank")}
+                  className={`py-2 px-3 rounded-xl border font-semibold ${
+                    payMethod === "bank"
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-950"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  🏦 Bank (CBE)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayMethod("telebirr")}
+                  className={`py-2 px-3 rounded-xl border font-semibold ${
+                    payMethod === "telebirr"
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-950"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  📱 Telebirr
+                </button>
+              </div>
+
+              {/* Account details */}
+              {payMethod === "bank" ? (
+                <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1">
+                  <p>
+                    <span className="text-muted-foreground">Bank:</span>{" "}
+                    <b>
+                      {paymentInfo?.bankAccount.bankName || "CBE (Commercial)"}
+                    </b>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Account:</span>{" "}
+                    <b className="font-mono">
+                      {paymentInfo?.bankAccount.accountNumber || "1000XXXXXXXX"}
+                    </b>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Name:</span>{" "}
+                    <b>
+                      {paymentInfo?.bankAccount.accountName ||
+                        "Medaf Skin Care"}
+                    </b>
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1">
+                  <p>
+                    <span className="text-muted-foreground">Phone:</span>{" "}
+                    <b className="font-mono">
+                      {paymentInfo?.telebirr.phoneNumber || "09XXXXXXXX"}
+                    </b>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Name:</span>{" "}
+                    <b>
+                      {paymentInfo?.telebirr.accountName || "Medaf Skin Care"}
+                    </b>
+                  </p>
+                </div>
+              )}
+
+              {/* Evidence inputs */}
+              <div className="space-y-2 text-xs">
+                <label className="font-medium text-foreground block">
+                  Screenshot Receipt or Reference:
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setPayEvidenceFile(e.target.files?.[0] || null)
+                  }
+                  className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                />
+                <input
+                  type="text"
+                  value={payEvidenceText}
+                  onChange={(e) => setPayEvidenceText(e.target.value)}
+                  placeholder="Or enter transaction ref / SMS text"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                />
+              </div>
+
+              {paymentModalError && (
+                <p className="text-xs text-destructive">{paymentModalError}</p>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setPayingOrder(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingPayment}
+                  className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
+                >
+                  {submittingPayment ? "Submitting…" : "I Have Paid"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

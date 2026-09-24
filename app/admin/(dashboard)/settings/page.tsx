@@ -21,6 +21,11 @@ import {
   UserRound,
   UserPlus,
   X,
+  Truck,
+  CreditCard,
+  PhoneCall,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
@@ -37,7 +42,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/Money";
 import { cn } from "@/lib/utils";
 
-type SectionId = "profile" | "banner" | "discounts" | "team";
+type SectionId =
+  | "profile"
+  | "banner"
+  | "discounts"
+  | "team"
+  | "delivery"
+  | "payment"
+  | "support";
 
 const SECTIONS: {
   id: SectionId;
@@ -62,6 +74,24 @@ const SECTIONS: {
     label: "Discounts",
     hint: "Issue and clear sales",
     Icon: BadgePercent,
+  },
+  {
+    id: "delivery",
+    label: "Delivery Zones",
+    hint: "Location fees & keywords",
+    Icon: Truck,
+  },
+  {
+    id: "payment",
+    label: "Payment Info",
+    hint: "Bank & Telebirr details",
+    Icon: CreditCard,
+  },
+  {
+    id: "support",
+    label: "Customer Support",
+    hint: "Support telephone number",
+    Icon: PhoneCall,
   },
   {
     id: "team",
@@ -1142,6 +1172,401 @@ function TeamSection() {
   );
 }
 
+/* ────────────────────────────────────────────────────────────── */
+/*  Delivery Zones Section                                        */
+/* ────────────────────────────────────────────────────────────── */
+
+type DeliveryZoneItem = {
+  name: string;
+  fee: number;
+  keywords: string[];
+};
+
+function DeliverySection() {
+  const toast = useToast();
+  const [zones, setZones] = useState<DeliveryZoneItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch<DeliveryZoneItem[]>("/settings/delivery-zones")
+      .then((data) => setZones(data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  function addZone() {
+    setZones((prev) => [
+      ...prev,
+      { name: "New Zone", fee: 300, keywords: ["area"] },
+    ]);
+  }
+
+  function removeZone(index: number) {
+    setZones((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateZone(
+    index: number,
+    field: keyof DeliveryZoneItem,
+    val: string | number | string[],
+  ) {
+    setZones((prev) =>
+      prev.map((z, i) => (i === index ? { ...z, [field]: val } : z)),
+    );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiFetch("/settings/delivery-zones", {
+        method: "PUT",
+        body: JSON.stringify({ zones }),
+      });
+      invalidateApiCache("/settings");
+      toast.success("Delivery zones saved");
+    } catch (err: unknown) {
+      toast.error(
+        "Failed to save zones",
+        err instanceof Error ? err.message : "Please try again",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SettingsShell
+      title="Delivery Zones & Fees"
+      description="Configure location-based delivery pricing (ETB 220–500) and address matching keywords."
+      action={
+        <Button onClick={handleSave} disabled={saving} className="rounded-full">
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      }
+    >
+      <div className="space-y-4">
+        {loading ? (
+          <Skeleton className="h-40 w-full rounded-xl" />
+        ) : (
+          <div className="space-y-3">
+            {zones.map((zone, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3.5 rounded-xl border border-border bg-muted/20"
+              >
+                <div className="flex-1 w-full space-y-1">
+                  <Label className="text-xs">Zone Name</Label>
+                  <Input
+                    value={zone.name}
+                    onChange={(e) => updateZone(idx, "name", e.target.value)}
+                    placeholder="E.g., Bole / CMC"
+                  />
+                </div>
+                <div className="w-full sm:w-32 space-y-1">
+                  <Label className="text-xs">Fee (ETB)</Label>
+                  <Input
+                    type="number"
+                    value={zone.fee}
+                    onChange={(e) =>
+                      updateZone(idx, "fee", Number(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="flex-[2] w-full space-y-1">
+                  <Label className="text-xs">Keywords (comma-separated)</Label>
+                  <Input
+                    value={
+                      Array.isArray(zone.keywords)
+                        ? zone.keywords.join(", ")
+                        : ""
+                    }
+                    onChange={(e) =>
+                      updateZone(
+                        idx,
+                        "keywords",
+                        e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                    placeholder="bole, cmc, gerji"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="sm:mt-5 text-destructive hover:bg-destructive/10"
+                  onClick={() => removeZone(idx)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addZone}
+              className="gap-1.5"
+            >
+              <Plus className="size-3.5" /> Add Delivery Zone
+            </Button>
+          </div>
+        )}
+      </div>
+    </SettingsShell>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────── */
+/*  Payment Accounts Section                                      */
+/* ────────────────────────────────────────────────────────────── */
+
+type PaymentInfoState = {
+  bankAccount: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
+  telebirr: {
+    phoneNumber: string;
+    accountName: string;
+  };
+};
+
+function PaymentSection() {
+  const toast = useToast();
+  const [info, setInfo] = useState<PaymentInfoState>({
+    bankAccount: {
+      bankName: "Commercial Bank of Ethiopia",
+      accountNumber: "1000XXXXXXXX",
+      accountName: "Medaf Skin Care",
+    },
+    telebirr: {
+      phoneNumber: "09XXXXXXXX",
+      accountName: "Medaf Skin Care",
+    },
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch<PaymentInfoState>("/settings/payment-info")
+      .then((data) => {
+        if (data?.bankAccount) setInfo(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiFetch("/settings/payment-info", {
+        method: "PUT",
+        body: JSON.stringify(info),
+      });
+      invalidateApiCache("/settings");
+      toast.success("Payment details saved");
+    } catch (err: unknown) {
+      toast.error(
+        "Failed to save",
+        err instanceof Error ? err.message : "Please try again",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SettingsShell
+      title="Payment Accounts (50% Advance)"
+      description="Bank transfer and Telebirr account information displayed to customers at checkout."
+      action={
+        <Button onClick={handleSave} disabled={saving} className="rounded-full">
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      }
+    >
+      <div className="space-y-6 max-w-xl">
+        {loading ? (
+          <Skeleton className="h-48 w-full rounded-xl" />
+        ) : (
+          <>
+            {/* Bank details */}
+            <div className="space-y-3 rounded-xl border border-border p-4 bg-muted/20">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                <CreditCard className="size-4 text-primary" /> Bank Account (CBE)
+              </h3>
+              <div className="space-y-2">
+                <Label htmlFor="bank-name">Bank Name</Label>
+                <Input
+                  id="bank-name"
+                  value={info.bankAccount.bankName}
+                  onChange={(e) =>
+                    setInfo({
+                      ...info,
+                      bankAccount: {
+                        ...info.bankAccount,
+                        bankName: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-acc">Account Number</Label>
+                <Input
+                  id="bank-acc"
+                  value={info.bankAccount.accountNumber}
+                  onChange={(e) =>
+                    setInfo({
+                      ...info,
+                      bankAccount: {
+                        ...info.bankAccount,
+                        accountNumber: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-holder">Account Name</Label>
+                <Input
+                  id="bank-holder"
+                  value={info.bankAccount.accountName}
+                  onChange={(e) =>
+                    setInfo({
+                      ...info,
+                      bankAccount: {
+                        ...info.bankAccount,
+                        accountName: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Telebirr details */}
+            <div className="space-y-3 rounded-xl border border-border p-4 bg-muted/20">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                📱 Telebirr Account
+              </h3>
+              <div className="space-y-2">
+                <Label htmlFor="tele-phone">Telebirr Phone Number</Label>
+                <Input
+                  id="tele-phone"
+                  value={info.telebirr.phoneNumber}
+                  onChange={(e) =>
+                    setInfo({
+                      ...info,
+                      telebirr: {
+                        ...info.telebirr,
+                        phoneNumber: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tele-name">Account Name</Label>
+                <Input
+                  id="tele-name"
+                  value={info.telebirr.accountName}
+                  onChange={(e) =>
+                    setInfo({
+                      ...info,
+                      telebirr: {
+                        ...info.telebirr,
+                        accountName: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </SettingsShell>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────── */
+/*  Support Phone Section                                         */
+/* ────────────────────────────────────────────────────────────── */
+
+function SupportSection() {
+  const toast = useToast();
+  const [supportPhone, setSupportPhone] = useState("66XXXXXXXX");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ supportPhone: string }>("/settings/support-phone")
+      .then((data) => {
+        if (data?.supportPhone) setSupportPhone(data.supportPhone);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiFetch("/settings/support-phone", {
+        method: "PUT",
+        body: JSON.stringify({ supportPhone }),
+      });
+      invalidateApiCache("/settings");
+      toast.success("Support phone number saved");
+    } catch (err: unknown) {
+      toast.error(
+        "Failed to save",
+        err instanceof Error ? err.message : "Please try again",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SettingsShell
+      title="Customer Support Contact"
+      description="The official support telephone number (66...) shown across the bot, web shop, and checkout."
+      action={
+        <Button onClick={handleSave} disabled={saving} className="rounded-full">
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      }
+    >
+      <div className="space-y-4 max-w-md">
+        {loading ? (
+          <Skeleton className="h-20 w-full rounded-xl" />
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="support-phone">Support Telephone Number</Label>
+            <Input
+              id="support-phone"
+              value={supportPhone}
+              onChange={(e) => setSupportPhone(e.target.value)}
+              placeholder="E.g., 66XXXXXXXX"
+            />
+            <p className="text-xs text-muted-foreground">
+              This number is linked in all order confirmation messages, the shop header, and cart pages.
+            </p>
+          </div>
+        )}
+      </div>
+    </SettingsShell>
+  );
+}
+
 export default function SettingsPage() {
   const { adminName } = useAdmin();
   const [section, setSection] = useState<SectionId>("profile");
@@ -1159,6 +1584,9 @@ export default function SettingsPage() {
     if (id === "profile") return <ProfileSection />;
     if (id === "banner") return <BannerSection />;
     if (id === "discounts") return <DiscountsSection />;
+    if (id === "delivery") return <DeliverySection />;
+    if (id === "payment") return <PaymentSection />;
+    if (id === "support") return <SupportSection />;
     return <TeamSection />;
   }
 

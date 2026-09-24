@@ -2,12 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
-import { Search, Check, X, Trash2 } from "lucide-react";
+import {
+  Search,
+  Check,
+  X,
+  Trash2,
+  ShieldCheck,
+  Eye,
+  CreditCard,
+  MapPin,
+  Truck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select as CustomSelect } from "@/components/ui/select-custom";
-import { OrderStatusIndicator, type OrderStatus } from "@/components/OrderStatusIndicator";
+import {
+  OrderStatusIndicator,
+  type OrderStatus,
+} from "@/components/OrderStatusIndicator";
 import { PaginationBar } from "@/components/PaginationBar";
 import { useNetwork } from "@/components/NetworkProvider";
 import { useToast } from "@/components/ToastProvider";
@@ -18,7 +31,19 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { PaginatedResponse } from "@/lib/types/pagination";
 import ConfirmModal from "@/components/ConfirmModal";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 
 type Order = {
@@ -30,6 +55,16 @@ type Order = {
   deliveryAddress: string | null;
   status: OrderStatus;
   createdAt: string;
+  fulfilmentType?: "delivery" | "pickup";
+  pickupLocationId?: string | null;
+  pickupLocation?: { id: string; name: string; address: string } | null;
+  deliveryFee?: number | string;
+  expectedDeliveryDate?: string | null;
+  advancePaymentAmount?: number | string;
+  paymentMethod?: string | null;
+  paymentEvidence?: string | null;
+  paymentSubmittedAt?: string | null;
+  paymentVerifiedAt?: string | null;
   customer?: {
     id: string;
     fullName: string;
@@ -66,6 +101,10 @@ export default function OrdersPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Evidence viewing modal
+  const [evidenceTarget, setEvidenceTarget] = useState<Order | null>(null);
+
   const pageSize = 12;
   const search = useDebouncedValue(searchInput, 300);
 
@@ -87,10 +126,13 @@ export default function OrdersPage() {
 
     (async () => {
       try {
-        const data = await apiFetch<PaginatedResponse<Order>>(`/orders?${params.toString()}`, {
-          toastOnError: false,
-          signal: controller.signal,
-        });
+        const data = await apiFetch<PaginatedResponse<Order>>(
+          `/orders?${params.toString()}`,
+          {
+            toastOnError: false,
+            signal: controller.signal,
+          },
+        );
         if (controller.signal.aborted) return;
         setOrders(data.items);
         setTotal(data.total);
@@ -101,7 +143,9 @@ export default function OrdersPage() {
           reportNetworkError(err);
           return;
         }
-        setFetchError(err instanceof Error ? err.message : "Failed to load orders.");
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load orders.",
+        );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -110,9 +154,17 @@ export default function OrdersPage() {
     return () => {
       controller.abort();
     };
-  }, [page, search, statusFilter, refreshKey, reconnectKey, clearNetworkError, reportNetworkError]);
+  }, [
+    page,
+    search,
+    statusFilter,
+    refreshKey,
+    reconnectKey,
+    clearNetworkError,
+    reportNetworkError,
+  ]);
 
-  async function updateStatus(order: Order, status: "delivered" | "cancelled") {
+  async function updateStatus(order: Order, status: OrderStatus) {
     setUpdatingId(order.id);
     try {
       await apiFetch(`/orders/${order.id}/status`, {
@@ -125,8 +177,52 @@ export default function OrdersPage() {
       toast.success(
         status === "delivered"
           ? "Order marked as delivered — customer notified"
-          : "Order cancelled",
+          : status === "confirmed"
+            ? "Payment verified & order confirmed"
+            : "Order status updated",
       );
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        reportNetworkError(err);
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function verifyPayment(order: Order) {
+    setUpdatingId(order.id);
+    try {
+      await apiFetch(`/orders/${order.id}/verify-payment`, {
+        method: "PATCH",
+      });
+      invalidateApiCache("/orders");
+      invalidateApiCache("/dashboard-summary");
+      toast.success(
+        "Payment verified",
+        `Order for ${order.customer?.fullName ?? "customer"} is now confirmed.`,
+      );
+      setEvidenceTarget(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        reportNetworkError(err);
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function rejectPayment(order: Order) {
+    setUpdatingId(order.id);
+    try {
+      await apiFetch(`/orders/${order.id}/reject-payment`, {
+        method: "PATCH",
+      });
+      invalidateApiCache("/orders");
+      toast.info("Payment rejected", "Order reverted to awaiting payment.");
+      setEvidenceTarget(null);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       if (isNetworkError(err)) {
@@ -159,38 +255,71 @@ export default function OrdersPage() {
 
   function OrderActions({ order }: { order: Order }) {
     const busy = updatingId === order.id;
+
     return (
-      <div className="flex flex-wrap items-center gap-1">
-        {order.status === "pending" && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={() => updateStatus(order, "delivered")}
-            >
-              <Check className="size-3.5" />
-              Mark delivered
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => updateStatus(order, "cancelled")}
-              className="text-destructive hover:text-destructive"
-            >
-              <X className="size-3.5" />
-              Cancel
-            </Button>
-          </>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* Payment verification action */}
+        {order.status === "payment_submitted" && (
+          <Button
+            size="sm"
+            className="h-7 px-2.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
+            disabled={busy}
+            onClick={() => verifyPayment(order)}
+          >
+            <ShieldCheck className="size-3.5" />
+            Verify
+          </Button>
         )}
+
+        {/* View Receipt action */}
+        {order.paymentEvidence && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={() => setEvidenceTarget(order)}
+          >
+            <Eye className="size-3.5" />
+            Evidence
+          </Button>
+        )}
+
+        {/* Confirmed / Pending -> Mark Delivered */}
+        {(order.status === "confirmed" || order.status === "pending") && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            disabled={busy}
+            onClick={() => updateStatus(order, "delivered")}
+          >
+            <Check className="size-3.5" />
+            Delivered
+          </Button>
+        )}
+
+        {/* Cancel option */}
+        {order.status !== "delivered" && order.status !== "cancelled" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            disabled={busy}
+            onClick={() => updateStatus(order, "cancelled")}
+          >
+            <X className="size-3.5" />
+            Cancel
+          </Button>
+        )}
+
+        {/* Delete order */}
         <Button
           variant="ghost"
           size="icon-xs"
           disabled={busy || deleting}
           onClick={() => setDeleteTarget(order)}
           aria-label="Delete order"
-          className="size-8 text-destructive hover:text-destructive"
+          className="size-7 text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="size-3.5" />
         </Button>
@@ -204,7 +333,7 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Orders</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Customer orders from the shop Mini App and Telegram bot
+            Manage customer orders, verify 50% advance payments, and update fulfilment status.
           </p>
         </div>
       </div>
@@ -224,64 +353,65 @@ export default function OrdersPage() {
           onValueChange={(v) => setStatusFilter(v as StatusFilter)}
           options={[
             { value: "all", label: "All statuses" },
-            { value: "pending", label: "Pending" },
+            { value: "awaiting_payment", label: "Awaiting Payment" },
+            { value: "payment_submitted", label: "Payment Submitted" },
+            { value: "confirmed", label: "Confirmed" },
             { value: "delivered", label: "Delivered" },
             { value: "cancelled", label: "Cancelled" },
           ]}
           size="sm"
-          className="sm:w-44"
+          className="sm:w-48"
         />
       </div>
 
       {fetchError && (
-        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
+        <div
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
           {fetchError}
         </div>
       )}
 
       {loading && (
-        <>
-          <div className="hidden md:block border border-border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-48">Actions</TableHead>
+        <div className="hidden md:block border border-border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Fulfilment</TableHead>
+                <TableHead>Payment (50%)</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-56">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-8 w-36" />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-36" /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex md:hidden flex-col gap-2" aria-busy="true">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="p-3 bg-card border border-border rounded-lg space-y-2">
-                <Skeleton className="h-4 w-3/5" />
-                <Skeleton className="h-3 w-4/5" />
-                <Skeleton className="h-3 w-2/3" />
-                <Skeleton className="h-8 w-32" />
-              </div>
-            ))}
-          </div>
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {!loading && !fetchError && total === 0 && (
@@ -295,89 +425,159 @@ export default function OrdersPage() {
 
       {!loading && !fetchError && orders.length > 0 && (
         <>
-          <div className="hidden md:block border border-border rounded-lg overflow-hidden">
+          <div className="hidden md:block border border-border rounded-2xl overflow-hidden bg-card shadow-xs">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Customer</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Delivery address</TableHead>
-                  <TableHead>Date & time</TableHead>
+                  <TableHead>Product & Total</TableHead>
+                  <TableHead>Fulfilment</TableHead>
+                  <TableHead>50% Advance</TableHead>
+                  <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-56">Actions</TableHead>
+                  <TableHead className="w-56 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((o) => (
-                  <TableRow key={o.id}>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{o.customer?.fullName ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">{o.customer?.phone ?? ""}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{o.product?.name ?? "—"}</TableCell>
-                    <TableCell>{o.quantity ?? 1}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p>
-                          <Money amount={lineTotal(o)} size="sm" />
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {o.quantity ?? 1} ×{" "}
-                          <Money amount={unitCost(o.cost)} size="xs" />
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground max-w-[280px] truncate">
-                      {o.deliveryAddress || <span className="opacity-50">—</span>}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                      {formatDateTime(o.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <OrderStatusIndicator status={o.status} showLabel />
-                    </TableCell>
-                    <TableCell>
-                      <OrderActions order={o} />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {orders.map((o) => {
+                  const isPickup = o.fulfilmentType === "pickup";
+                  const totalAmt = lineTotal(o);
+                  const advance =
+                    o.advancePaymentAmount != null
+                      ? Number(o.advancePaymentAmount)
+                      : totalAmt * 0.5;
+
+                  return (
+                    <TableRow key={o.id}>
+                      <TableCell>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">
+                            {o.customer?.fullName ?? "—"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {o.customer?.phone ?? ""}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {o.product?.name ?? "—"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Qty {o.quantity ?? 1} ·{" "}
+                            <Money amount={totalAmt} size="xs" />
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs space-y-0.5 max-w-[200px]">
+                          {isPickup ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                              <MapPin className="size-3" />
+                              {o.pickupLocation?.name || "Store Pickup"}
+                            </span>
+                          ) : (
+                            <div className="text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                                <Truck className="size-3" /> Delivery
+                              </span>
+                              <p className="text-[11px] truncate">
+                                {o.deliveryAddress || "Address on file"}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs space-y-0.5">
+                          <span className="font-semibold text-foreground">
+                            {advance.toFixed(2)} ETB
+                          </span>
+                          {o.paymentMethod && (
+                            <p className="text-[11px] text-muted-foreground capitalize">
+                              via {o.paymentMethod}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                        {formatDateTime(o.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <OrderStatusIndicator status={o.status} showLabel />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <OrderActions order={o} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
 
-          <div className="flex md:hidden flex-col gap-2">
-            {orders.map((o) => (
-              <div key={o.id} className="p-3 bg-card border border-border rounded-lg">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{o.product?.name ?? "Product"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {o.customer?.fullName ?? "Customer"} · {o.customer?.phone}
-                    </p>
+          {/* Mobile cards */}
+          <div className="flex md:hidden flex-col gap-2.5">
+            {orders.map((o) => {
+              const totalAmt = lineTotal(o);
+              const advance =
+                o.advancePaymentAmount != null
+                  ? Number(o.advancePaymentAmount)
+                  : totalAmt * 0.5;
+
+              return (
+                <div
+                  key={o.id}
+                  className="p-3.5 bg-card border border-border rounded-2xl space-y-2 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate text-foreground">
+                        {o.product?.name ?? "Product"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {o.customer?.fullName ?? "Customer"} ·{" "}
+                        {o.customer?.phone}
+                      </p>
+                    </div>
+                    <OrderStatusIndicator status={o.status} showLabel />
                   </div>
-                  <OrderStatusIndicator status={o.status} showLabel />
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-xl">
+                    <div>
+                      <span className="text-muted-foreground block text-[10px]">
+                        Order Total:
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {totalAmt.toFixed(2)} ETB (Qty {o.quantity})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px]">
+                        50% Advance:
+                      </span>
+                      <span className="font-semibold text-emerald-800">
+                        {advance.toFixed(2)} ETB
+                      </span>
+                    </div>
+                    <div className="col-span-2 text-[11px] text-muted-foreground">
+                      {o.fulfilmentType === "pickup"
+                        ? `📍 Pickup: ${o.pickupLocation?.name || "Store"}`
+                        : `🚚 Delivery: ${o.deliveryAddress || "On file"}`}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{formatDateTime(o.createdAt)}</span>
+                  </div>
+
+                  <div className="pt-1">
+                    <OrderActions order={o} />
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>Qty {o.quantity ?? 1}</span>
-                  <span>
-                    <Money amount={lineTotal(o)} size="sm" />
-                  </span>
-                  <span>{formatDateTime(o.createdAt)}</span>
-                </div>
-                {o.deliveryAddress && (
-                  <p className="text-xs text-muted-foreground mt-1 break-words">
-                    📍 {o.deliveryAddress}
-                  </p>
-                )}
-                <div className="mt-3">
-                  <OrderActions order={o} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <PaginationBar
@@ -392,13 +592,105 @@ export default function OrdersPage() {
         </>
       )}
 
+      {/* Payment Evidence Modal */}
+      <Dialog
+        open={Boolean(evidenceTarget)}
+        onOpenChange={() => setEvidenceTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="size-5 text-primary" />
+              Payment Evidence
+            </DialogTitle>
+          </DialogHeader>
+
+          {evidenceTarget && (
+            <div className="space-y-4 pt-2">
+              <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1">
+                <p>
+                  <span className="text-muted-foreground">Customer:</span>{" "}
+                  <b>{evidenceTarget.customer?.fullName}</b> (
+                  {evidenceTarget.customer?.phone})
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Product:</span>{" "}
+                  <b>{evidenceTarget.product?.name}</b> ×{" "}
+                  {evidenceTarget.quantity}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Total:</span>{" "}
+                  <b>{lineTotal(evidenceTarget).toFixed(2)} ETB</b> · 50%
+                  Advance:{" "}
+                  <b className="text-emerald-700">
+                    {(
+                      Number(evidenceTarget.advancePaymentAmount) ||
+                      lineTotal(evidenceTarget) * 0.5
+                    ).toFixed(2)}{" "}
+                    ETB
+                  </b>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Method:</span>{" "}
+                  <b className="capitalize font-mono">
+                    {evidenceTarget.paymentMethod || "Direct Submission"}
+                  </b>
+                </p>
+              </div>
+
+              {/* Preview image or text */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-foreground block">
+                  Submitted Evidence:
+                </span>
+                {evidenceTarget.paymentEvidence?.startsWith("http") ? (
+                  <div className="rounded-xl overflow-hidden border border-border bg-black/5 max-h-72 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={evidenceTarget.paymentEvidence}
+                      alt="Receipt Screenshot"
+                      className="object-contain max-h-72 w-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl border border-border bg-background font-mono text-xs break-words">
+                    {evidenceTarget.paymentEvidence ||
+                      "No evidence text recorded"}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="flex-row sm:justify-between gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => rejectPayment(evidenceTarget)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  Reject
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => verifyPayment(evidenceTarget)}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
+                >
+                  <ShieldCheck className="size-4" />
+                  Verify & Confirm Order
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
-        open={!!deleteTarget}
+        open={Boolean(deleteTarget)}
         title="Delete Order"
-        message={`Delete order for "${deleteTarget?.product?.name ?? "this product"}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        message="Are you sure you want to delete this order? This action cannot be undone."
+        confirmLabel={deleting ? "Deleting…" : "Delete Order"}
+        cancelLabel="Cancel"
         variant="danger"
-        busy={deleting}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
