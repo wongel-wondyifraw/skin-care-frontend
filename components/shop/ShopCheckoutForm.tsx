@@ -101,6 +101,13 @@ export function ShopCheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [createdOrders, setCreatedOrders] = useState<ShopOrder[]>([]);
+  /** idle → verifying (API in flight) → confirmed (short success beat) → completed page */
+  const [verifyPhase, setVerifyPhase] = useState<
+    "idle" | "verifying" | "confirmed"
+  >("idle");
+  const [verifyHint, setVerifyHint] = useState(
+    "Checking your payment with the bank…",
+  );
 
   // Load payment info & pickup locations on mount
   useEffect(() => {
@@ -204,6 +211,24 @@ export function ShopCheckoutForm({
     day: "numeric",
   });
 
+  // Rotate status hints while Verify.ET is running
+  useEffect(() => {
+    if (verifyPhase !== "verifying") return;
+    const hints = [
+      "Checking your payment with the bank…",
+      "Confirming transaction details…",
+      "Matching amount and account…",
+      "Almost done — finalizing verification…",
+    ];
+    let i = 0;
+    setVerifyHint(hints[0]);
+    const id = setInterval(() => {
+      i = (i + 1) % hints.length;
+      setVerifyHint(hints[i]);
+    }, 2800);
+    return () => clearInterval(id);
+  }, [verifyPhase]);
+
   const hasProfileAddress = Boolean(defaultAddress && defaultAddress.trim());
 
   async function handleSubmit(e: React.FormEvent) {
@@ -226,21 +251,23 @@ export function ShopCheckoutForm({
       return;
     }
 
+    const evidenceUrlOrText = paymentEvidenceText.trim();
+    if (!evidenceFile && !evidenceUrlOrText) {
+      setError(
+        "Paste your transaction ID or upload a receipt screenshot so we can verify payment.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+    setVerifyPhase("verifying");
 
     try {
-      let evidenceUrl = paymentEvidenceText.trim();
+      let evidencePayload = evidenceUrlOrText;
 
-      // If an image was selected, upload it first
       if (evidenceFile) {
-        try {
-          evidenceUrl = await shopUploadReceipt(evidenceFile);
-        } catch {
-          if (!evidenceUrl) {
-            evidenceUrl = "Receipt screenshot uploaded via client";
-          }
-        }
+        evidencePayload = await shopUploadReceipt(evidenceFile);
       }
 
       const orders = await shopCreateOrders({
@@ -261,13 +288,17 @@ export function ShopCheckoutForm({
           fulfilmentType === "pickup" ? selectedPickupId : undefined,
         deliveryFee: activeDeliveryFee,
         paymentMethod,
-        paymentEvidence: evidenceUrl || undefined,
+        paymentEvidence: evidencePayload,
       });
 
       setCreatedOrders(orders);
+      setVerifyPhase("confirmed");
+      // Brief success beat, then reveal the confirmed order page
+      await new Promise((r) => setTimeout(r, 1100));
       setOrderCompleted(true);
       onSuccess?.();
     } catch (err) {
+      setVerifyPhase("idle");
       setError(
         err instanceof ShopApiError
           ? err.message
@@ -278,45 +309,91 @@ export function ShopCheckoutForm({
     }
   }
 
+  if (verifyPhase === "verifying" || verifyPhase === "confirmed") {
+    const isDone = verifyPhase === "confirmed";
+    return (
+      <div className="rounded-2xl border border-border bg-card p-8 text-center space-y-6 shadow-xs animate-in fade-in zoom-in-95 duration-300">
+        <div className="relative mx-auto size-20">
+          {/* Soft pulse ring while verifying */}
+          {!isDone && (
+            <>
+              <span className="absolute inset-0 rounded-full bg-primary/15 animate-ping" />
+              <span className="absolute inset-1 rounded-full border-2 border-primary/25 animate-pulse" />
+            </>
+          )}
+          <div
+            className={cn(
+              "relative size-20 rounded-full flex items-center justify-center transition-all duration-500",
+              isDone
+                ? "bg-green-500/15 text-green-600 scale-105"
+                : "bg-primary/10 text-primary",
+            )}
+          >
+            {isDone ? (
+              <CheckCircle2 className="size-10 animate-in zoom-in-50 duration-400" />
+            ) : (
+              <Loader2 className="size-10 animate-spin" />
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-lg font-bold tracking-tight text-foreground">
+            {isDone ? "Payment confirmed" : "Verifying payment"}
+          </h3>
+          <p
+            key={isDone ? "done" : verifyHint}
+            className="text-xs text-muted-foreground max-w-xs mx-auto animate-in fade-in slide-in-from-bottom-1 duration-300"
+          >
+            {isDone
+              ? "Your advance was verified. Preparing your order…"
+              : verifyHint}
+          </p>
+        </div>
+
+        {/* Progress steps */}
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <span
+            className={cn(
+              "h-1.5 w-10 rounded-full transition-colors duration-300",
+              "bg-primary",
+            )}
+          />
+          <span
+            className={cn(
+              "h-1.5 w-10 rounded-full transition-colors duration-500",
+              isDone ? "bg-primary" : "bg-muted animate-pulse",
+            )}
+          />
+          <span
+            className={cn(
+              "h-1.5 w-10 rounded-full transition-colors duration-500",
+              isDone ? "bg-green-500" : "bg-muted",
+            )}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (orderCompleted) {
     const firstOrder = createdOrders[0];
     const verifyStatus = firstOrder?.verifyEtStatus;
 
-    let TitleIcon = CheckCircle2;
-    let titleText = "Order Placed Successfully!";
-    let subtitleText =
-      "Your 50% advance payment has been submitted and is currently awaiting verification by our team.";
-    let iconClass = "text-primary bg-primary/10";
-
-    if (verifyStatus === "verified") {
-      TitleIcon = CheckCircle2;
-      titleText = "Payment Verified! Order Confirmed";
-      subtitleText =
-        "Your advance payment was verified automatically. We are preparing your order!";
-      iconClass = "text-green-500 bg-green-500/10";
-    } else if (verifyStatus === "queued") {
-      TitleIcon = Loader2;
-      titleText = "Payment Verification In Progress…";
-      subtitleText =
-        "We are checking your payment with the bank. We'll notify you on Telegram once confirmed.";
-      iconClass = "text-blue-500 bg-blue-500/10 animate-pulse";
-    } else if (verifyStatus && verifyStatus !== "skipped") {
-      TitleIcon = AlertCircle;
-      titleText = "Order Placed — Awaiting Manual Verification";
-      subtitleText =
-        "Your order was placed, but auto-verification failed. Our team will review it manually.";
-      iconClass = "text-amber-500 bg-amber-500/10";
-    }
+    const titleText =
+      verifyStatus === "verified"
+        ? "Payment Verified! Order Confirmed"
+        : "Order Confirmed";
+    const subtitleText =
+      "Your advance payment was verified automatically. We are preparing your order!";
 
     return (
-      <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-5 shadow-xs animate-in fade-in duration-200">
-        <div
-          className={cn(
-            "mx-auto size-14 rounded-full flex items-center justify-center",
-            iconClass
-          )}
-        >
-          <TitleIcon className={cn("size-8", verifyStatus === "queued" && "animate-spin")} />
+      <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-5 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-400">
+        <div className="relative mx-auto size-16">
+          <span className="absolute inset-0 rounded-full bg-green-500/20 animate-ping [animation-iteration-count:1] [animation-duration:900ms]" />
+          <div className="relative size-16 rounded-full flex items-center justify-center text-green-500 bg-green-500/10 animate-in zoom-in-50 duration-400">
+            <CheckCircle2 className="size-9" />
+          </div>
         </div>
         <div className="space-y-1">
           <h3 className="text-xl font-bold tracking-tight text-foreground">
@@ -327,7 +404,7 @@ export function ShopCheckoutForm({
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/30 p-4 text-left text-xs space-y-2.5">
+        <div className="rounded-xl border border-border bg-muted/30 p-4 text-left text-xs space-y-2.5 animate-in fade-in duration-500 delay-150">
           <div className="flex justify-between items-center text-muted-foreground">
             <span>Fulfilment Method</span>
             <span className="font-semibold text-foreground capitalize">
@@ -341,7 +418,7 @@ export function ShopCheckoutForm({
             </span>
           </div>
           <div className="flex justify-between items-center text-muted-foreground">
-            <span>50% Advance Submitted</span>
+            <span>50% Advance Verified</span>
             <span className="font-semibold text-foreground">
               {advanceAmount.toFixed(2)} ETB
             </span>
@@ -913,8 +990,12 @@ export function ShopCheckoutForm({
         {/* Payment Evidence Input */}
         <div className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <span className="text-xs font-semibold text-foreground block">
-            Payment Evidence (Screenshot or Reference)
+            Payment Evidence (required)
           </span>
+          <p className="text-[10px] text-muted-foreground">
+            We verify with the bank before placing your order. Prefer pasting the
+            transaction ID for fastest confirmation.
+          </p>
 
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/80 hover:border-primary rounded-xl p-3.5 text-center cursor-pointer transition-colors bg-background">
             <UploadCloud className="size-6 text-muted-foreground" />
@@ -972,7 +1053,7 @@ export function ShopCheckoutForm({
         disabled={submitting}
       >
         <ShieldCheck className="size-4" />
-        {submitting ? "Placing Order…" : "Place Order"}
+        {submitting ? "Verifying payment…" : "Place Order"}
       </Button>
     </form>
   );
