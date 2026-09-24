@@ -561,10 +561,18 @@ export default function OrdersPage() {
                         {advance.toFixed(2)} ETB
                       </span>
                     </div>
-                    <div className="col-span-2 text-[11px] text-muted-foreground">
-                      {o.fulfilmentType === "pickup"
-                        ? `📍 Pickup: ${o.pickupLocation?.name || "Store"}`
-                        : `🚚 Delivery: ${o.deliveryAddress || "On file"}`}
+                    <div className="col-span-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      {o.fulfilmentType === "pickup" ? (
+                        <>
+                          <MapPin className="size-3 text-primary shrink-0" />
+                          <span>Pickup: {o.pickupLocation?.name || "Store"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="size-3 text-primary shrink-0" />
+                          <span className="truncate">Delivery: {o.deliveryAddress || "On file"}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 

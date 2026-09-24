@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Truck,
+  Store,
+  MapPin,
+  Calendar,
+  CreditCard,
+  Copy,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
@@ -10,6 +19,7 @@ import { Money } from "@/components/Money";
 import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
+import { cn } from "@/lib/utils";
 import {
   shopCancelOrder,
   shopFetchOrders,
@@ -309,36 +319,46 @@ export default function ShopOrdersPage() {
                 </div>
 
                 {/* Fulfilment & Expected Date Details */}
-                <div className="rounded-xl bg-muted/40 p-2 text-[11px] space-y-1 text-muted-foreground">
+                <div className="rounded-xl bg-muted/40 p-2.5 text-[11px] space-y-1.5 text-muted-foreground border border-border/60">
                   <div className="flex justify-between items-center">
-                    <span>
-                      {isPickup ? "📍 Store Pickup" : "🚚 Delivery to:"}
+                    <span className="inline-flex items-center gap-1">
+                      {isPickup ? (
+                        <>
+                          <Store className="size-3 text-primary" /> Store Pickup
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="size-3 text-primary" /> Delivery:
+                        </>
+                      )}
                     </span>
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-foreground truncate max-w-[200px]">
                       {isPickup
-                        ? order.pickupLocation?.name || "Medaf Branch"
+                        ? order.pickupLocation?.name || "Store Branch"
                         : order.deliveryAddress?.trim() || "Address on file"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>📅 Expected:</span>
-                    <span className="font-semibold text-emerald-800">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="size-3" /> Expected:
+                    </span>
+                    <span className="font-semibold text-foreground">
                       {formatExpected(order.expectedDeliveryDate)}
                     </span>
                   </div>
                   {order.advancePaymentAmount != null && (
-                    <div className="flex justify-between items-center border-t border-border/40 pt-1">
+                    <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
                       <span>50% Advance:</span>
-                      <span className="font-semibold text-foreground">
+                      <span className="font-semibold text-primary">
                         {advance.toFixed(2)} ETB
                       </span>
                     </div>
                   )}
                   {order.paymentEvidence && (
-                    <div className="flex justify-between items-center text-[10px] text-emerald-700">
-                      <span>Receipt submitted via:</span>
-                      <span className="font-mono capitalize">
-                        {order.paymentMethod || "Evidence"}
+                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                      <span>Payment submitted via:</span>
+                      <span className="font-mono capitalize font-semibold text-foreground">
+                        {order.paymentMethod || "Direct"}
                       </span>
                     </div>
                   )}
@@ -350,10 +370,11 @@ export default function ShopOrdersPage() {
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl flex-1"
+                      className="h-8 text-xs font-semibold rounded-xl flex-1 gap-1.5"
                       onClick={() => setPayingOrder(order)}
                     >
-                      💳 Pay 50% Advance ({advance.toFixed(2)} ETB)
+                      <CreditCard className="size-3.5" />
+                      Pay 50% Advance ({advance.toFixed(2)} ETB)
                     </Button>
                   )}
 
@@ -408,77 +429,119 @@ export default function ShopOrdersPage() {
               </button>
             </div>
 
-            <form onSubmit={handlePayEvidenceSubmit} className="space-y-3.5">
-              {/* Method choice */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
+            <form onSubmit={handlePayEvidenceSubmit} className="space-y-4">
+              {/* Method choice with official logos */}
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setPayMethod("bank")}
-                  className={`py-2 px-3 rounded-xl border font-semibold ${
+                  className={cn(
+                    "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
                     payMethod === "bank"
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-950"
-                      : "border-border text-muted-foreground"
-                  }`}
+                      ? "border-[#6b1d7d] bg-[#6b1d7d]/5 ring-1 ring-[#6b1d7d] shadow-2xs"
+                      : "border-border bg-card hover:bg-muted/40",
+                  )}
                 >
-                  🏦 Bank (CBE)
+                  <div className="relative size-8 shrink-0 rounded-lg overflow-hidden bg-white border border-border/80 p-0.5 flex items-center justify-center">
+                    <Image
+                      src="/cbe.png"
+                      alt="CBE"
+                      fill
+                      className="object-contain p-0.5"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs font-bold leading-tight text-[#6b1d7d]">
+                      CBE Bank
+                    </span>
+                    <span className="block text-[10px] text-muted-foreground leading-tight">
+                      Bank Transfer
+                    </span>
+                  </div>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setPayMethod("telebirr")}
-                  className={`py-2 px-3 rounded-xl border font-semibold ${
+                  className={cn(
+                    "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
                     payMethod === "telebirr"
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-950"
-                      : "border-border text-muted-foreground"
-                  }`}
+                      ? "border-[#0072bc] bg-[#0072bc]/5 ring-1 ring-[#0072bc] shadow-2xs"
+                      : "border-border bg-card hover:bg-muted/40",
+                  )}
                 >
-                  📱 Telebirr
+                  <div className="relative size-8 shrink-0 rounded-lg overflow-hidden bg-white border border-border/80 p-0.5 flex items-center justify-center">
+                    <Image
+                      src="/telebirr.png"
+                      alt="Telebirr"
+                      fill
+                      className="object-contain p-0.5"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs font-bold leading-tight text-[#0072bc]">
+                      Telebirr
+                    </span>
+                    <span className="block text-[10px] text-muted-foreground leading-tight">
+                      Mobile Wallet
+                    </span>
+                  </div>
                 </button>
               </div>
 
               {/* Account details */}
               {payMethod === "bank" ? (
-                <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1">
-                  <p>
-                    <span className="text-muted-foreground">Bank:</span>{" "}
-                    <b>
-                      {paymentInfo?.bankAccount.bankName || "CBE (Commercial)"}
-                    </b>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Account:</span>{" "}
-                    <b className="font-mono">
+                <div className="rounded-xl border border-border bg-card p-3 text-xs space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+                    <span className="font-semibold text-foreground">
+                      {paymentInfo?.bankAccount.bankName || "Commercial Bank of Ethiopia"}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase text-[#6b1d7d] bg-[#6b1d7d]/10 px-2 py-0.5 rounded-full">
+                      CBE Account
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Account Number:</span>
+                    <span className="font-mono font-bold text-foreground">
                       {paymentInfo?.bankAccount.accountNumber || "1000XXXXXXXX"}
-                    </b>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Name:</span>{" "}
-                    <b>
-                      {paymentInfo?.bankAccount.accountName ||
-                        "Medaf Skin Care"}
-                    </b>
-                  </p>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Account Name:</span>
+                    <span className="font-semibold text-foreground">
+                      {paymentInfo?.bankAccount.accountName || "Medaf Skin Care"}
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1">
-                  <p>
-                    <span className="text-muted-foreground">Phone:</span>{" "}
-                    <b className="font-mono">
+                <div className="rounded-xl border border-border bg-card p-3 text-xs space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+                    <span className="font-semibold text-foreground">
+                      Telebirr Account
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase text-[#0072bc] bg-[#0072bc]/10 px-2 py-0.5 rounded-full">
+                      Telebirr
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Phone Number:</span>
+                    <span className="font-mono font-bold text-foreground">
                       {paymentInfo?.telebirr.phoneNumber || "09XXXXXXXX"}
-                    </b>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Name:</span>{" "}
-                    <b>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Account Name:</span>
+                    <span className="font-semibold text-foreground">
                       {paymentInfo?.telebirr.accountName || "Medaf Skin Care"}
-                    </b>
-                  </p>
+                    </span>
+                  </div>
                 </div>
               )}
 
               {/* Evidence inputs */}
               <div className="space-y-2 text-xs">
-                <label className="font-medium text-foreground block">
-                  Screenshot Receipt or Reference:
+                <label className="font-semibold text-foreground block">
+                  Payment Evidence (Screenshot or Reference)
                 </label>
                 <input
                   type="file"
@@ -486,14 +549,14 @@ export default function ShopOrdersPage() {
                   onChange={(e) =>
                     setPayEvidenceFile(e.target.files?.[0] || null)
                   }
-                  className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                 />
                 <input
                   type="text"
                   value={payEvidenceText}
                   onChange={(e) => setPayEvidenceText(e.target.value)}
-                  placeholder="Or enter transaction ref / SMS text"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                  placeholder="Or enter transaction reference / SMS text"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
 
@@ -501,7 +564,7 @@ export default function ShopOrdersPage() {
                 <p className="text-xs text-destructive">{paymentModalError}</p>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <Button
                   type="button"
                   variant="outline"
@@ -513,7 +576,7 @@ export default function ShopOrdersPage() {
                 <Button
                   type="submit"
                   disabled={submittingPayment}
-                  className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
+                  className="flex-1 rounded-xl font-semibold"
                 >
                   {submittingPayment ? "Submitting…" : "I Have Paid"}
                 </Button>

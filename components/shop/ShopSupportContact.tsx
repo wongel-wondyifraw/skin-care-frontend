@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Phone } from "lucide-react";
 import { shopFetchSupportPhone } from "@/lib/shop-api";
+import { cn } from "@/lib/utils";
 
 export function ShopSupportContact({
   compact = false,
@@ -26,9 +28,12 @@ export function ShopSupportContact({
     return (
       <a
         href={`tel:${phone}`}
-        className={`inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 transition-colors ${className}`}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors",
+          className,
+        )}
       >
-        <span>📞</span>
+        <Phone className="size-3.5 shrink-0" />
         <span>Need help? Call {phone}</span>
       </a>
     );
@@ -36,25 +41,29 @@ export function ShopSupportContact({
 
   return (
     <div
-      className={`rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs ${className}`}
+      className={cn(
+        "rounded-2xl border border-border bg-card p-4 text-card-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
+        className,
+      )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-lg text-emerald-700 font-bold shrink-0">
-          📞
+        <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+          <Phone className="size-4" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-emerald-950">
+          <p className="text-sm font-semibold text-foreground">
             Customer Support
           </p>
-          <p className="text-xs text-emerald-800/80">
+          <p className="text-xs text-muted-foreground">
             Questions about your order, products, or payment?
           </p>
         </div>
       </div>
       <a
         href={`tel:${phone}`}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors shrink-0"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs transition-colors shrink-0"
       >
+        <Phone className="size-3.5" />
         <span>Call {phone}</span>
       </a>
     </div>

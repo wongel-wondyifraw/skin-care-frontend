@@ -1400,7 +1400,10 @@ function PaymentSection() {
             {/* Bank details */}
             <div className="space-y-3 rounded-xl border border-border p-4 bg-muted/20">
               <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
-                <CreditCard className="size-4 text-primary" /> Bank Account (CBE)
+                <div className="relative size-5 rounded overflow-hidden shrink-0">
+                  <Image src="/cbe.png" alt="CBE" fill className="object-contain" />
+                </div>
+                <span>Bank Account (CBE)</span>
               </h3>
               <div className="space-y-2">
                 <Label htmlFor="bank-name">Bank Name</Label>
@@ -1455,7 +1458,10 @@ function PaymentSection() {
             {/* Telebirr details */}
             <div className="space-y-3 rounded-xl border border-border p-4 bg-muted/20">
               <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
-                📱 Telebirr Account
+                <div className="relative size-5 rounded overflow-hidden shrink-0">
+                  <Image src="/telebirr.png" alt="Telebirr" fill className="object-contain" />
+                </div>
+                <span>Telebirr Account</span>
               </h3>
               <div className="space-y-2">
                 <Label htmlFor="tele-phone">Telebirr Phone Number</Label>
