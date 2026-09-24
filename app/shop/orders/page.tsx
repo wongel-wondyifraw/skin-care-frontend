@@ -497,7 +497,7 @@ export default function ShopOrdersPage() {
                       {paymentInfo?.bankAccount.bankName || "Commercial Bank of Ethiopia"}
                     </span>
                     <span className="text-[10px] font-semibold uppercase text-[#6b1d7d] bg-[#6b1d7d]/10 px-2 py-0.5 rounded-full">
-                      CBE Account
+                      CBE
                     </span>
                   </div>
                   <div className="flex justify-between items-center">

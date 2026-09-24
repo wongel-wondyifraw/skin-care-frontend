@@ -128,7 +128,7 @@ function DealCountdown({ endsAt }: { endsAt?: string | null }) {
 
   useEffect(() => {
     if (!endsAt) {
-      setMsLeft(null);
+      setTimeout(() => setMsLeft(null), 0);
       return;
     }
     const tick = () =>
@@ -423,7 +423,7 @@ function BannerSection() {
   }, [toast]);
 
   useEffect(() => {
-    void load();
+    setTimeout(() => { void load(); }, 0);
   }, [load]);
 
   useEffect(() => {
@@ -729,15 +729,17 @@ function DiscountsSection() {
   }, [toast]);
 
   useEffect(() => {
-    setLoadingCatalog(true);
-    void loadCatalog("")
-      .catch((err) => toast.error(err))
-      .finally(() => setLoadingCatalog(false));
-    void loadActiveDeals();
+    setTimeout(() => {
+      setLoadingCatalog(true);
+      void loadCatalog("")
+        .catch((err) => toast.error(err))
+        .finally(() => setLoadingCatalog(false));
+      void loadActiveDeals();
+    }, 0);
   }, [loadCatalog, loadActiveDeals, toast]);
 
   useEffect(() => {
-    void loadCatalog(debouncedSearch).catch(() => undefined);
+    setTimeout(() => { void loadCatalog(debouncedSearch).catch(() => undefined); }, 0);
   }, [debouncedSearch, loadCatalog]);
 
   function toggle(id: string) {

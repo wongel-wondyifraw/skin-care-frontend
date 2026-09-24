@@ -78,7 +78,7 @@ export default function PickupLocationsPage() {
   }
 
   useEffect(() => {
-    loadLocations();
+    setTimeout(() => loadLocations(), 0);
   }, []);
 
   function openCreate() {

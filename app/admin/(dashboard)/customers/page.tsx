@@ -103,16 +103,17 @@ export default function CustomersPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setFetchError(null);
+    
+    const loadData = async () => {
+      setLoading(true);
+      setFetchError(null);
 
-    const params = new URLSearchParams({
+      const params = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
     });
     if (search.trim()) params.set("search", search.trim());
 
-    (async () => {
       try {
         const data = await apiFetch<PaginatedResponse<Customer>>(`/customers?${params.toString()}`, {
           toastOnError: false,
@@ -132,7 +133,8 @@ export default function CustomersPage() {
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    })();
+    };
+    void loadData();
     return () => {
       controller.abort();
     };
@@ -140,8 +142,8 @@ export default function CustomersPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
+    if (page > totalPages && totalPages > 0) {
+      setTimeout(() => setPage(totalPages), 0);
     }
   }, [page, totalPages]);
 

@@ -86,10 +86,10 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     (async () => {
+      setLoading(true);
+      setError(null);
       try {
         const data = await apiFetchCached<Product>(`/products/${id}`, 20_000);
         if (cancelled) return;

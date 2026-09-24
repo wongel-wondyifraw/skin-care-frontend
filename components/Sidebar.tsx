@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   MapPin,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isNavActive } from "@/lib/nav";
@@ -29,6 +30,7 @@ export const navItems = [
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/pickup-locations", label: "Pickup Locations", icon: MapPin },
   { href: "/admin/scans", label: "Skin Scans", icon: ScanFace },
+  { href: "/admin/verification", label: "Verification API", icon: Activity },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

@@ -11,7 +11,6 @@ import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
 import { ShopPrice } from "@/components/shop/ShopPrice";
 import { Money } from "@/components/Money";
-import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 import { shopSalePrice } from "@/lib/shop-pricing";
 
 export default function ShopCartPage() {
@@ -208,9 +207,6 @@ export default function ShopCartPage() {
           submitLabel="Place order for cart"
         />
       </div>
-
-      {/* Customer Support */}
-      <ShopSupportContact />
     </div>
   );
 }

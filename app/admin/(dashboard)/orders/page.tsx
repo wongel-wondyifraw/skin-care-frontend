@@ -12,6 +12,8 @@ import {
   CreditCard,
   MapPin,
   Truck,
+  ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +67,7 @@ type Order = {
   paymentEvidence?: string | null;
   paymentSubmittedAt?: string | null;
   paymentVerifiedAt?: string | null;
+  verifyEtStatus?: string | null;
   customer?: {
     id: string;
     fullName: string;
@@ -77,6 +80,30 @@ type Order = {
 };
 
 type StatusFilter = "all" | OrderStatus;
+
+function VerifyEtBadge({ status }: { status?: string | null }) {
+  if (!status || status === "skipped") return null;
+  
+  if (status === "verified") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-700 mt-1">
+        <ShieldCheck className="size-3" /> Auto-Verified
+      </span>
+    );
+  }
+  if (status === "queued") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 mt-1">
+        <Loader2 className="size-3 animate-spin" /> Verifying…
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 mt-1">
+      <ShieldAlert className="size-3" /> Failed: {status}
+    </span>
+  );
+}
 
 function unitCost(cost: number | string) {
   const n = typeof cost === "number" ? cost : Number(cost);
@@ -109,22 +136,23 @@ export default function OrdersPage() {
   const search = useDebouncedValue(searchInput, 300);
 
   useEffect(() => {
-    setPage(1);
+    setTimeout(() => setPage(1), 0);
   }, [search, statusFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setFetchError(null);
+    
+    const loadData = async () => {
+      setLoading(true);
+      setFetchError(null);
 
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (search.trim()) params.set("search", search.trim());
-    if (statusFilter !== "all") params.set("status", statusFilter);
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (search.trim()) params.set("search", search.trim());
+      if (statusFilter !== "all") params.set("status", statusFilter);
 
-    (async () => {
       try {
         const data = await apiFetch<PaginatedResponse<Order>>(
           `/orders?${params.toString()}`,
@@ -149,7 +177,8 @@ export default function OrdersPage() {
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    })();
+    };
+    void loadData();
 
     return () => {
       controller.abort();
@@ -233,6 +262,26 @@ export default function OrdersPage() {
     }
   }
 
+  async function autoVerifyPayment(order: Order) {
+    setUpdatingId(order.id);
+    try {
+      await apiFetch(`/orders/${order.id}/auto-verify`, {
+        method: "PATCH",
+      });
+      invalidateApiCache("/orders");
+      toast.success("Verification triggered", "Check the status in a moment.");
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        reportNetworkError(err);
+      } else if (err instanceof Error) {
+        toast.error("Verification failed", err.message);
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -260,15 +309,30 @@ export default function OrdersPage() {
       <div className="flex flex-wrap items-center gap-1.5">
         {/* Payment verification action */}
         {order.status === "payment_submitted" && (
-          <Button
-            size="sm"
-            className="h-7 px-2.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
-            disabled={busy}
-            onClick={() => verifyPayment(order)}
-          >
-            <ShieldCheck className="size-3.5" />
-            Verify
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              className="h-7 px-2.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
+              disabled={busy}
+              onClick={() => verifyPayment(order)}
+            >
+              <ShieldCheck className="size-3.5" />
+              Verify
+            </Button>
+            {order.paymentEvidence && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                disabled={busy}
+                onClick={() => autoVerifyPayment(order)}
+                title="Re-verify with Verify.ET"
+              >
+                <ShieldAlert className="size-3.5" />
+                Auto-Verify
+              </Button>
+            )}
+          </div>
         )}
 
         {/* View Receipt action */}
@@ -505,7 +569,10 @@ export default function OrdersPage() {
                         {formatDateTime(o.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <OrderStatusIndicator status={o.status} showLabel />
+                        <div className="flex flex-col items-start">
+                          <OrderStatusIndicator status={o.status} showLabel />
+                          <VerifyEtBadge status={o.verifyEtStatus} />
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <OrderActions order={o} />
@@ -541,7 +608,10 @@ export default function OrdersPage() {
                         {o.customer?.phone}
                       </p>
                     </div>
-                    <OrderStatusIndicator status={o.status} showLabel />
+                    <div className="flex flex-col items-end">
+                      <OrderStatusIndicator status={o.status} showLabel />
+                      <VerifyEtBadge status={o.verifyEtStatus} />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-xl">

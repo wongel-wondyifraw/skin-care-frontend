@@ -53,9 +53,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     (async () => {
+      setLoading(true);
+      setError(null);
       try {
         const summary = await apiFetchCached<DashboardSummary>("/dashboard-summary", 30_000);
         if (cancelled) return;

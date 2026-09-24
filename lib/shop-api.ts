@@ -63,6 +63,8 @@ export type ShopOrder = {
   paymentEvidence?: string | null;
   paymentSubmittedAt?: string | null;
   paymentVerifiedAt?: string | null;
+  verifyEtStatus?: string | null;
+  verifyEtRequestId?: string | null;
   createdAt: string;
   product?: {
     id: string;

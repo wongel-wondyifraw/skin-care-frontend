@@ -17,11 +17,11 @@ import {
   Copy,
   ChevronRight,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShopPrice } from "@/components/shop/ShopPrice";
 import { Money } from "@/components/Money";
-import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 import {
   shopCreateOrders,
   shopFetchDeliveryFee,
@@ -32,6 +32,7 @@ import {
   type FulfilmentType,
   type PickupLocation,
   type PaymentInfo,
+  type ShopOrder,
 } from "@/lib/shop-api";
 import { shopSalePrice } from "@/lib/shop-pricing";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,7 @@ export function ShopCheckoutForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderCompleted, setOrderCompleted] = useState(false);
+  const [createdOrders, setCreatedOrders] = useState<ShopOrder[]>([]);
 
   // Load payment info & pickup locations on mount
   useEffect(() => {
@@ -223,7 +225,7 @@ export function ShopCheckoutForm({
         }
       }
 
-      await shopCreateOrders({
+      const orders = await shopCreateOrders({
         items: lines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
@@ -238,6 +240,7 @@ export function ShopCheckoutForm({
         paymentEvidence: evidenceUrl || undefined,
       });
 
+      setCreatedOrders(orders);
       setOrderCompleted(true);
       onSuccess?.();
     } catch (err) {
@@ -252,18 +255,51 @@ export function ShopCheckoutForm({
   }
 
   if (orderCompleted) {
+    const firstOrder = createdOrders[0];
+    const verifyStatus = firstOrder?.verifyEtStatus;
+
+    let TitleIcon = CheckCircle2;
+    let titleText = "Order Placed Successfully!";
+    let subtitleText =
+      "Your 50% advance payment has been submitted and is currently awaiting verification by our team.";
+    let iconClass = "text-primary bg-primary/10";
+
+    if (verifyStatus === "verified") {
+      TitleIcon = CheckCircle2;
+      titleText = "Payment Verified! Order Confirmed";
+      subtitleText =
+        "Your advance payment was verified automatically. We are preparing your order!";
+      iconClass = "text-green-500 bg-green-500/10";
+    } else if (verifyStatus === "queued") {
+      TitleIcon = Loader2;
+      titleText = "Payment Verification In Progress…";
+      subtitleText =
+        "We are checking your payment with the bank. We'll notify you on Telegram once confirmed.";
+      iconClass = "text-blue-500 bg-blue-500/10 animate-pulse";
+    } else if (verifyStatus && verifyStatus !== "skipped") {
+      TitleIcon = AlertCircle;
+      titleText = "Order Placed — Awaiting Manual Verification";
+      subtitleText =
+        "Your order was placed, but auto-verification failed. Our team will review it manually.";
+      iconClass = "text-amber-500 bg-amber-500/10";
+    }
+
     return (
       <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-5 shadow-xs animate-in fade-in duration-200">
-        <div className="mx-auto size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-          <CheckCircle2 className="size-8" />
+        <div
+          className={cn(
+            "mx-auto size-14 rounded-full flex items-center justify-center",
+            iconClass
+          )}
+        >
+          <TitleIcon className={cn("size-8", verifyStatus === "queued" && "animate-spin")} />
         </div>
         <div className="space-y-1">
           <h3 className="text-xl font-bold tracking-tight text-foreground">
-            Order Placed Successfully!
+            {titleText}
           </h3>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Your 50% advance payment has been submitted and is currently awaiting
-            verification by our team.
+            {subtitleText}
           </p>
         </div>
 
@@ -294,8 +330,6 @@ export function ShopCheckoutForm({
           </div>
         </div>
 
-        <ShopSupportContact compact={false} />
-
         <Button
           onClick={() => router.push("/shop/orders")}
           className="w-full h-11 rounded-xl"
@@ -323,32 +357,36 @@ export function ShopCheckoutForm({
           <span className="text-xs text-muted-foreground">Choose one</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5">
           {/* Delivery Option */}
           <button
             type="button"
             onClick={() => setFulfilmentType("delivery")}
             className={cn(
-              "flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-2xl border text-sm font-medium transition-all cursor-pointer",
+              "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
               fulfilmentType === "delivery"
-                ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-xs"
+                ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-2xs"
                 : "border-border bg-card hover:bg-muted/40 text-muted-foreground",
             )}
           >
             <div
               className={cn(
-                "p-2 rounded-xl",
+                "p-1.5 rounded-lg shrink-0",
                 fulfilmentType === "delivery"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground",
               )}
             >
-              <Truck className="size-5" />
+              <Truck className="size-4" />
             </div>
-            <span className="font-semibold text-foreground">Delivery</span>
-            <span className="text-[11px] text-muted-foreground">
-              To your doorstep
-            </span>
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-foreground leading-tight">
+                Delivery
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-tight">
+                Doorstep
+              </span>
+            </div>
           </button>
 
           {/* Store Pickup Option */}
@@ -356,26 +394,30 @@ export function ShopCheckoutForm({
             type="button"
             onClick={() => setFulfilmentType("pickup")}
             className={cn(
-              "flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-2xl border text-sm font-medium transition-all cursor-pointer",
+              "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
               fulfilmentType === "pickup"
-                ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-xs"
+                ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-2xs"
                 : "border-border bg-card hover:bg-muted/40 text-muted-foreground",
             )}
           >
             <div
               className={cn(
-                "p-2 rounded-xl",
+                "p-1.5 rounded-lg shrink-0",
                 fulfilmentType === "pickup"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground",
               )}
             >
-              <Store className="size-5" />
+              <Store className="size-4" />
             </div>
-            <span className="font-semibold text-foreground">Store Pickup</span>
-            <span className="text-[11px] font-semibold text-primary">
-              Free Pickup
-            </span>
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-foreground leading-tight">
+                Store Pickup
+              </span>
+              <span className="block text-[10px] font-semibold text-primary leading-tight">
+                Free
+              </span>
+            </div>
           </button>
         </div>
 
@@ -712,7 +754,7 @@ export function ShopCheckoutForm({
                 </span>
               </div>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6b1d7d] bg-[#6b1d7d]/10 px-2 py-0.5 rounded-full">
-                CBE Account
+                CBE
               </span>
             </div>
 
@@ -868,9 +910,6 @@ export function ShopCheckoutForm({
         </div>
       </div>
 
-      {/* Support number contact */}
-      <ShopSupportContact compact={true} />
-
       {error && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
           {error}
@@ -884,9 +923,7 @@ export function ShopCheckoutForm({
         disabled={submitting}
       >
         <ShieldCheck className="size-4" />
-        {submitting
-          ? "Processing Order…"
-          : `I Have Paid ${advanceAmount.toFixed(2)} ETB — Place Order`}
+        {submitting ? "Placing Order…" : "Place Order"}
       </Button>
     </form>
   );

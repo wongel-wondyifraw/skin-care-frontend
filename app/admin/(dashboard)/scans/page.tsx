@@ -59,7 +59,7 @@ export default function ScansPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_KEY);
-      if (saved === "table" || saved === "tiles") setViewMode(saved);
+      if (saved === "table" || saved === "tiles") setTimeout(() => setViewMode(saved as ViewMode), 0);
     } catch {
       /* ignore */
     }
@@ -75,21 +75,22 @@ export default function ScansPage() {
   }
 
   useEffect(() => {
-    setPage(1);
+    setTimeout(() => setPage(1), 0);
   }, [search]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setFetchError(null);
 
-    const params = new URLSearchParams({
+    const loadData = async () => {
+      setLoading(true);
+      setFetchError(null);
+
+      const params = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
     });
     if (search.trim()) params.set("search", search.trim());
 
-    (async () => {
       try {
         const data = await apiFetch<PaginatedResponse<SkinAnalysis>>(
           `/skin-analyses?${params.toString()}`,
@@ -109,7 +110,8 @@ export default function ScansPage() {
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    })();
+    };
+    void loadData();
 
     return () => {
       controller.abort();

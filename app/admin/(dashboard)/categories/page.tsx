@@ -49,8 +49,8 @@ function CategoriesTab() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     (async () => {
+      setLoading(true);
       try {
         const data = await apiFetchCached<Category[]>("/categories", 5 * 60_000);
         if (!cancelled) {
@@ -252,8 +252,8 @@ function SkinTypesTab() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     (async () => {
+      setLoading(true);
       try {
         const data = await apiFetchCached<SkinType[]>("/skin-types", 5 * 60_000);
         if (!cancelled) {

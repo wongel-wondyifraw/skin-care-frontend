@@ -90,7 +90,7 @@ function ProductsPageContent() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_KEY);
-      if (saved === "table" || saved === "tiles") setViewMode(saved);
+      if (saved === "table" || saved === "tiles") setTimeout(() => setViewMode(saved), 0);
     } catch {
       // ignore
     }
@@ -135,10 +135,12 @@ function ProductsPageContent() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setListLoading(true);
-    setFetchError(null);
 
-    const params = new URLSearchParams({
+    const loadData = async () => {
+      setListLoading(true);
+      setFetchError(null);
+
+      const params = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
     });
@@ -148,7 +150,6 @@ function ProductsPageContent() {
     if (filterStock !== "all") params.set("stock", filterStock);
     params.set("sort", sortMode);
 
-    (async () => {
       try {
         const data = await apiFetch<PaginatedResponse<Product>>(`/products?${params.toString()}`, {
           toastOnError: false,
@@ -168,7 +169,8 @@ function ProductsPageContent() {
       } finally {
         if (!controller.signal.aborted) setListLoading(false);
       }
-    })();
+    };
+    void loadData();
 
     return () => {
       controller.abort();
@@ -189,8 +191,8 @@ function ProductsPageContent() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
+    if (page > totalPages && totalPages > 0) {
+      setTimeout(() => setPage(totalPages), 0);
     }
   }, [page, totalPages]);
 
