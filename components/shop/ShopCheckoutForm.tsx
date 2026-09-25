@@ -673,7 +673,29 @@ export function ShopCheckoutForm({
                 </p>
 
                 {customerLat && customerLon && (
-                  <DeliveryRouteMap customerLat={customerLat} customerLon={customerLon} />
+                  <DeliveryRouteMap
+                    customerLat={customerLat}
+                    customerLon={customerLon}
+                    onPick={(lat, lon) => {
+                      setCustomerLat(lat);
+                      setCustomerLon(lon);
+                      setAddress("Your location");
+                      setLocationSubtitle(null);
+                      void shopReverseGeocode(lat, lon)
+                        .then((rev) => {
+                          if (rev?.displayName) {
+                            setLocationSubtitle(
+                              rev.displayName
+                                .split(",")
+                                .slice(0, 2)
+                                .join(",")
+                                .trim(),
+                            );
+                          }
+                        })
+                        .catch(() => {});
+                    }}
+                  />
                 )}
               </div>
             ) : (
@@ -719,9 +741,58 @@ export function ShopCheckoutForm({
                   }}
                 />
 
-                {customerLat && customerLon && (
+                {customerLat && customerLon ? (
                   <div className="mt-2">
-                    <DeliveryRouteMap customerLat={customerLat} customerLon={customerLon} />
+                    <DeliveryRouteMap
+                      customerLat={customerLat}
+                      customerLon={customerLon}
+                      heightClass="h-[180px] md:h-[300px]"
+                      onPick={(lat, lon) => {
+                        setCustomerLat(lat);
+                        setCustomerLon(lon);
+                        setAddress("Your location");
+                        setLocationSubtitle(null);
+                        void shopReverseGeocode(lat, lon)
+                          .then((rev) => {
+                            if (rev?.displayName) {
+                              setLocationSubtitle(
+                                rev.displayName
+                                  .split(",")
+                                  .slice(0, 2)
+                                  .join(",")
+                                  .trim(),
+                              );
+                            }
+                          })
+                          .catch(() => {});
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <LocationPinMap
+                      heightClass="h-[180px] md:h-[300px]"
+                      label="Delivery"
+                      onPick={(lat, lon) => {
+                        setCustomerLat(lat);
+                        setCustomerLon(lon);
+                        setAddress("Your location");
+                        setLocationSubtitle(null);
+                        void shopReverseGeocode(lat, lon)
+                          .then((rev) => {
+                            if (rev?.displayName) {
+                              setLocationSubtitle(
+                                rev.displayName
+                                  .split(",")
+                                  .slice(0, 2)
+                                  .join(",")
+                                  .trim(),
+                              );
+                            }
+                          })
+                          .catch(() => {});
+                      }}
+                    />
                   </div>
                 )}
               </div>

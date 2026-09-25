@@ -38,6 +38,7 @@ import {
   type LocationSuggestion,
 } from "@/components/location/LocationSearch";
 import { LocationPinMap } from "@/components/location/LocationPinMap";
+import { shopReverseGeocode } from "@/lib/shop-api";
 import { cn } from "@/lib/utils";
 
 type Tab = "pickup" | "delivery";
@@ -428,9 +429,26 @@ function PickupFormDialog({
   onSubmit: (e: React.FormEvent) => void;
   onPick: (loc: LocationSuggestion) => void;
 }) {
+  async function handleMapPick(lat: number, lon: number) {
+    setForm((p) => ({ ...p, lat, lon }));
+    try {
+      const rev = await shopReverseGeocode(lat, lon);
+      if (rev?.displayName) {
+        setForm((p) => ({
+          ...p,
+          lat,
+          lon,
+          address: rev.displayName,
+        }));
+      }
+    } catch {
+      // pin still set; address can be typed
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -451,13 +469,13 @@ function PickupFormDialog({
               onSelect={onPick}
             />
           </div>
-          {form.lat != null && form.lon != null && (
-            <LocationPinMap
-              lat={form.lat}
-              lon={form.lon}
-              label={form.name || "Pickup"}
-            />
-          )}
+          <LocationPinMap
+            lat={form.lat}
+            lon={form.lon}
+            label={form.name || "Pickup"}
+            heightClass="h-[200px] md:h-[480px]"
+            onPick={(lat, lon) => void handleMapPick(lat, lon)}
+          />
           <div className="space-y-2">
             <Label>Address text</Label>
             <Input
@@ -605,19 +623,36 @@ function DeliveryTab({ toast }: { toast: ReturnType<typeof useToast> }) {
             });
           }}
         />
-        {origin.lat !== 0 && (
-          <>
-            <p className="text-xs text-muted-foreground">
-              {origin.displayAddress} · {origin.lat.toFixed(5)},{" "}
-              {origin.lon.toFixed(5)}
-            </p>
-            <LocationPinMap
-              lat={origin.lat}
-              lon={origin.lon}
-              label="Shop origin"
-            />
-          </>
-        )}
+        <p className="text-xs text-muted-foreground">
+          {origin.lat !== 0
+            ? `${origin.displayAddress || "Pinned"} · ${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)}`
+            : "Search or click the map to set the shop origin."}
+        </p>
+        <LocationPinMap
+          lat={origin.lat !== 0 ? origin.lat : null}
+          lon={origin.lon !== 0 ? origin.lon : null}
+          label="Shop origin"
+          heightClass="h-[220px] md:h-[520px]"
+          onPick={(lat, lon) => {
+            setOrigin((prev) => ({
+              ...prev,
+              lat,
+              lon,
+            }));
+            void shopReverseGeocode(lat, lon)
+              .then((rev) => {
+                if (rev?.displayName) {
+                  setOrigin((prev) => ({
+                    ...prev,
+                    lat,
+                    lon,
+                    displayAddress: rev.displayName,
+                  }));
+                }
+              })
+              .catch(() => {});
+          }}
+        />
       </div>
 
       <div className="space-y-4 rounded-xl border border-border p-4 bg-card">
