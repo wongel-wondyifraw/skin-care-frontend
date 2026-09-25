@@ -28,13 +28,9 @@ export type PickupLocation = {
   id: string;
   name: string;
   address: string;
-  enabled: boolean;
-};
-
-export type DeliveryZone = {
-  name: string;
-  fee: number;
-  keywords: string[];
+  lat?: number | null;
+  lon?: number | null;
+  enabled?: boolean;
 };
 
 export type PaymentInfo = {
@@ -212,6 +208,10 @@ export async function shopCreateOrders(body: {
   return orders;
 }
 
+export async function shopFetchOrder(orderId: string) {
+  return shopFetch<ShopOrder>(`/shop/orders/${orderId}`);
+}
+
 export async function shopFetchOrders(params?: {
   page?: number;
   pageSize?: number;
@@ -261,16 +261,18 @@ export async function shopClearCart() {
   });
 }
 
-export async function shopFetchDeliveryZones() {
-  return shopFetch<DeliveryZone[]>("/shop/delivery-zones");
-}
-
 export async function shopFetchDeliveryFee(lat?: number, lon?: number) {
   let qs = "";
   if (lat !== undefined && lon !== undefined) {
     qs = `?lat=${lat}&lon=${lon}`;
   }
-  return shopFetch<{ distanceKm: number; fee: number; durationMinutes: number; withinRadius: boolean }>(`/shop/delivery-fee${qs}`);
+  return shopFetch<{
+    distanceKm: number;
+    fee: number;
+    durationMinutes: number;
+    withinRadius: boolean;
+    bandLabel?: string | null;
+  }>(`/shop/delivery-fee${qs}`);
 }
 
 export async function shopAutocomplete(query: string) {
@@ -279,7 +281,17 @@ export async function shopAutocomplete(query: string) {
 }
 
 export async function shopFetchMapConfig() {
-  return shopFetch<{ key: string }>("/location/config");
+  // Public endpoint — also used by admin map components
+  const res = await fetch(`${resolveApiBaseUrl()}/location/config`);
+  if (!res.ok) return { key: "" };
+  return res.json() as Promise<{ key: string }>;
+}
+
+export async function shopReverseGeocode(lat: number, lon: number) {
+  const qs = `?lat=${lat}&lon=${lon}`;
+  return shopFetch<{ displayName: string; lat: number; lon: number }>(
+    `/location/reverse${qs}`,
+  );
 }
 
 export async function shopFetchPickupLocations() {

@@ -228,7 +228,7 @@ export default function ShopOrdersPage() {
       <div>
         <h1 className="text-lg font-semibold tracking-tight">My orders</h1>
         <p className="text-xs text-muted-foreground">
-          Track status and payment for every order you placed in the shop.
+          Prepayment, expected date, and location for each order.
         </p>
       </div>
 
@@ -318,50 +318,27 @@ export default function ShopOrdersPage() {
                   </div>
                 </div>
 
-                {/* Fulfilment & Expected Date Details */}
                 <div className="rounded-xl bg-muted/40 p-2.5 text-[11px] space-y-1.5 text-muted-foreground border border-border/60">
-                  <div className="flex justify-between items-center">
-                    <span className="inline-flex items-center gap-1">
-                      {isPickup ? (
-                        <>
-                          <Store className="size-3 text-primary" /> Store Pickup
-                        </>
-                      ) : (
-                        <>
-                          <Truck className="size-3 text-primary" /> Delivery:
-                        </>
-                      )}
-                    </span>
-                    <span className="font-medium text-foreground truncate max-w-[200px]">
+                  <div className="flex justify-between items-center gap-2">
+                    <span>📍 Location</span>
+                    <span className="font-medium text-foreground truncate max-w-[200px] text-right">
                       {isPickup
-                        ? order.pickupLocation?.name || "Store Branch"
-                        : order.deliveryAddress?.trim() || "Address on file"}
+                        ? order.pickupLocation?.name || "Store pickup"
+                        : order.deliveryAddress?.trim() || "Delivery"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="size-3" /> Expected:
-                    </span>
+                    <span>📅 Expected</span>
                     <span className="font-semibold text-foreground">
                       {formatExpected(order.expectedDeliveryDate)}
                     </span>
                   </div>
-                  {order.advancePaymentAmount != null && (
-                    <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
-                      <span>50% Advance:</span>
-                      <span className="font-semibold text-primary">
-                        {advance.toFixed(2)} ETB
-                      </span>
-                    </div>
-                  )}
-                  {order.paymentEvidence && (
-                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-                      <span>Payment submitted via:</span>
-                      <span className="font-mono capitalize font-semibold text-foreground">
-                        {order.paymentMethod || "Direct"}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
+                    <span>💵 Prepayment</span>
+                    <span className="font-semibold text-primary">
+                      {advance.toFixed(2)} ETB
+                    </span>
+                  </div>
                 </div>
 
                 {/* Action buttons */}

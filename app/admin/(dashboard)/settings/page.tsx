@@ -21,12 +21,10 @@ import {
   UserRound,
   UserPlus,
   X,
-  Truck,
   CreditCard,
   PhoneCall,
   Plus,
   Trash2,
-  MapPin,
 } from "lucide-react";
 import Image from "next/image";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
@@ -42,14 +40,12 @@ import { formatCountdown } from "@/lib/shop-pricing";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/Money";
 import { cn } from "@/lib/utils";
-import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
 
 type SectionId =
   | "profile"
   | "banner"
   | "discounts"
   | "team"
-  | "delivery"
   | "payment"
   | "support";
 
@@ -76,12 +72,6 @@ const SECTIONS: {
     label: "Discounts",
     hint: "Issue and clear sales",
     Icon: BadgePercent,
-  },
-  {
-    id: "delivery",
-    label: "Delivery Zones",
-    hint: "Location fees & keywords",
-    Icon: Truck,
   },
   {
     id: "payment",
@@ -1176,136 +1166,7 @@ function TeamSection() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────── */
-/*  Delivery Configuration Section                                */
-/* ────────────────────────────────────────────────────────────── */
-
-function DeliverySection() {
-  const toast = useToast();
-  
-  const [origin, setOrigin] = useState({ lat: 0, lon: 0, displayAddress: "" });
-  const [rate, setRate] = useState({ ratePerKm: 25, minFee: 50, maxRadiusKm: 30 });
-  
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch<any>("/settings/delivery-origin").catch(() => null),
-      apiFetch<any>("/settings/delivery-rate").catch(() => null),
-    ]).then(([originData, rateData]) => {
-      if (originData && originData.lat) setOrigin(originData);
-      if (rateData && typeof rateData.ratePerKm === 'number') setRate(rateData);
-    }).finally(() => setLoading(false));
-  }, []);
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await apiFetch("/settings/delivery-origin", {
-        method: "PUT",
-        body: JSON.stringify(origin),
-      });
-      await apiFetch("/settings/delivery-rate", {
-        method: "PUT",
-        body: JSON.stringify(rate),
-      });
-      invalidateApiCache("/settings");
-      toast.success("Delivery configuration saved");
-    } catch (err: unknown) {
-      toast.error(
-        "Failed to save configuration",
-        err instanceof Error ? err.message : "Please try again",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <SettingsShell
-      title="Delivery Configuration"
-      description="Set your shop's home origin address and per-km pricing logic."
-      action={
-        <Button onClick={handleSave} disabled={saving} className="rounded-full">
-          {saving ? "Saving…" : "Save changes"}
-        </Button>
-      }
-    >
-      <div className="space-y-6">
-        {loading ? (
-          <Skeleton className="h-40 w-full rounded-xl" />
-        ) : (
-          <>
-            <div className="space-y-4 rounded-xl border border-border p-4 bg-muted/20">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <MapPin className="size-4 text-primary" /> Shop Origin Address
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                This address serves as the starting point for all distance calculations.
-              </p>
-              
-              <div className="space-y-2 relative">
-                <Label>Search & Set Origin Location</Label>
-                <LocationSearch 
-                  placeholder="E.g., Bole Medhanialem..."
-                  defaultValue={origin.displayAddress}
-                  onSelect={(loc) => {
-                    setOrigin({
-                      displayAddress: loc.display_name,
-                      lat: parseFloat(loc.lat),
-                      lon: parseFloat(loc.lon)
-                    });
-                  }}
-                />
-              </div>
-
-              {origin.lat !== 0 && (
-                <div className="pt-2 text-xs text-muted-foreground flex flex-col gap-1">
-                  <div><strong>Current Address:</strong> {origin.displayAddress}</div>
-                  <div><strong>Coordinates:</strong> {origin.lat.toFixed(6)}, {origin.lon.toFixed(6)}</div>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4 rounded-xl border border-border p-4 bg-muted/20">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Truck className="size-4 text-primary" /> Delivery Pricing Logic
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Rate per KM (ETB)</Label>
-                  <Input 
-                    type="number"
-                    value={rate.ratePerKm}
-                    onChange={(e) => setRate({ ...rate, ratePerKm: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Minimum Fee (ETB)</Label>
-                  <Input 
-                    type="number"
-                    value={rate.minFee}
-                    onChange={(e) => setRate({ ...rate, minFee: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Radius (KM)</Label>
-                  <Input 
-                    type="number"
-                    value={rate.maxRadiusKm}
-                    onChange={(e) => setRate({ ...rate, maxRadiusKm: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </SettingsShell>
-  );
-}
+/* Delivery config moved to /admin/fulfilment */
 
 /* ────────────────────────────────────────────────────────────── */
 /*  Payment Accounts Section                                      */
@@ -1575,7 +1436,6 @@ export default function SettingsPage() {
     if (id === "profile") return <ProfileSection />;
     if (id === "banner") return <BannerSection />;
     if (id === "discounts") return <DiscountsSection />;
-    if (id === "delivery") return <DeliverySection />;
     if (id === "payment") return <PaymentSection />;
     if (id === "support") return <SupportSection />;
     return <TeamSection />;

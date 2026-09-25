@@ -28,7 +28,7 @@ export const navItems = [
   { href: "/admin/products", label: "Products", icon: ShoppingBag },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/pickup-locations", label: "Pickup Locations", icon: MapPin },
+  { href: "/admin/fulfilment", label: "Fulfilment", icon: MapPin },
   { href: "/admin/scans", label: "Skin Scans", icon: ScanFace },
   { href: "/admin/verification", label: "Verification API", icon: Activity },
   { href: "/admin/settings", label: "Settings", icon: Settings },

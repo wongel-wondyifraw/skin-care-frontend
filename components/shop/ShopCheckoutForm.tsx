@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Loader2,
+  LocateFixed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShopPrice } from "@/components/shop/ShopPrice";
@@ -28,6 +29,8 @@ import {
   shopFetchPickupLocations,
   shopFetchPaymentInfo,
   shopUploadReceipt,
+  shopFetchOrder,
+  shopReverseGeocode,
   ShopApiError,
   type FulfilmentType,
   type PickupLocation,
@@ -38,6 +41,7 @@ import { shopSalePrice } from "@/lib/shop-pricing";
 import { cn } from "@/lib/utils";
 import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
 import { DeliveryRouteMap } from "@/components/location/DeliveryRouteMap";
+import { LocationPinMap } from "@/components/location/LocationPinMap";
 
 type CheckoutLine = {
   productId: string;
@@ -95,6 +99,8 @@ export function ShopCheckoutForm({
   const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
   const [copiedBank, setCopiedBank] = useState(false);
   const [copiedTelebirr, setCopiedTelebirr] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationSubtitle, setLocationSubtitle] = useState<string | null>(null);
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
@@ -229,6 +235,47 @@ export function ShopCheckoutForm({
     return () => clearInterval(id);
   }, [verifyPhase]);
 
+  async function handleMyLocation() {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported on this device.");
+      return;
+    }
+    setLocating(true);
+    setError(null);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60_000,
+        });
+      });
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      setCustomerLat(lat);
+      setCustomerLon(lon);
+      setAddress("Your location");
+      setLocationSubtitle(null);
+      setIsEditingAddress(true);
+      try {
+        const rev = await shopReverseGeocode(lat, lon);
+        if (rev?.displayName) {
+          setLocationSubtitle(
+            rev.displayName.split(",").slice(0, 2).join(",").trim(),
+          );
+        }
+      } catch {
+        // label stays "Your location"
+      }
+    } catch {
+      setError(
+        "Could not read your location. Allow location access or search instead.",
+      );
+    } finally {
+      setLocating(false);
+    }
+  }
+
   const hasProfileAddress = Boolean(defaultAddress && defaultAddress.trim());
 
   async function handleSubmit(e: React.FormEvent) {
@@ -292,9 +339,19 @@ export function ShopCheckoutForm({
       });
 
       setCreatedOrders(orders);
+
+      const first = orders[0];
+      const needsPoll =
+        first?.status === "payment_submitted" ||
+        first?.verifyEtStatus === "queued";
+
+      if (needsPoll && first?.id) {
+        const finalOrders = await pollUntilPaymentResolved(orders);
+        setCreatedOrders(finalOrders);
+      }
+
       setVerifyPhase("confirmed");
-      // Brief success beat, then reveal the confirmed order page
-      await new Promise((r) => setTimeout(r, 1100));
+      await new Promise((r) => setTimeout(r, 900));
       setOrderCompleted(true);
       onSuccess?.();
     } catch (err) {
@@ -307,6 +364,53 @@ export function ShopCheckoutForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /** Poll order while webhook / background verify finishes */
+  async function pollUntilPaymentResolved(
+    orders: ShopOrder[],
+  ): Promise<ShopOrder[]> {
+    const primaryId = orders[0]?.id;
+    if (!primaryId) return orders;
+
+    const failStatuses = new Set([
+      "failed",
+      "amount_mismatch",
+      "receiver_mismatch",
+      "duplicate",
+      "unsupported",
+      "skipped",
+    ]);
+    const deadline = Date.now() + 90_000;
+
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const latest = await shopFetchOrder(primaryId);
+        if (latest.status === "confirmed" || latest.verifyEtStatus === "verified") {
+          return orders.map((o) =>
+            o.id === latest.id
+              ? latest
+              : { ...o, status: "confirmed", verifyEtStatus: "verified" },
+          );
+        }
+        if (
+          latest.verifyEtStatus &&
+          failStatuses.has(latest.verifyEtStatus)
+        ) {
+          throw new ShopApiError(
+            `Payment verification failed: ${latest.verifyEtStatus}. Please try again with a valid transaction.`,
+            400,
+          );
+        }
+      } catch (err) {
+        if (err instanceof ShopApiError && err.status === 400) throw err;
+        // transient network — keep polling
+      }
+    }
+
+    // Soft success: order exists under review; don't fail the whole checkout
+    return orders;
   }
 
   if (verifyPhase === "verifying" || verifyPhase === "confirmed") {
@@ -379,21 +483,31 @@ export function ShopCheckoutForm({
   if (orderCompleted) {
     const firstOrder = createdOrders[0];
     const verifyStatus = firstOrder?.verifyEtStatus;
+    const isFullyVerified =
+      firstOrder?.status === "confirmed" || verifyStatus === "verified";
 
-    const titleText =
-      verifyStatus === "verified"
-        ? "Payment Verified! Order Confirmed"
-        : "Order Confirmed";
-    const subtitleText =
-      "Your advance payment was verified automatically. We are preparing your order!";
+    const titleText = isFullyVerified
+      ? "Payment Verified! Order Confirmed"
+      : "Order Placed — Verifying Payment";
+    const subtitleText = isFullyVerified
+      ? "Your advance payment was verified automatically. We are preparing your order!"
+      : "Your order is in. We're still confirming payment with the bank — you'll be notified on Telegram when it's done.";
 
     return (
       <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-5 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-400">
         <div className="relative mx-auto size-16">
-          <span className="absolute inset-0 rounded-full bg-green-500/20 animate-ping [animation-iteration-count:1] [animation-duration:900ms]" />
-          <div className="relative size-16 rounded-full flex items-center justify-center text-green-500 bg-green-500/10 animate-in zoom-in-50 duration-400">
-            <CheckCircle2 className="size-9" />
-          </div>
+          {isFullyVerified ? (
+            <>
+              <span className="absolute inset-0 rounded-full bg-green-500/20 animate-ping [animation-iteration-count:1] [animation-duration:900ms]" />
+              <div className="relative size-16 rounded-full flex items-center justify-center text-green-500 bg-green-500/10 animate-in zoom-in-50 duration-400">
+                <CheckCircle2 className="size-9" />
+              </div>
+            </>
+          ) : (
+            <div className="relative size-16 rounded-full flex items-center justify-center text-primary bg-primary/10">
+              <Loader2 className="size-9 animate-spin" />
+            </div>
+          )}
         </div>
         <div className="space-y-1">
           <h3 className="text-xl font-bold tracking-tight text-foreground">
@@ -418,7 +532,9 @@ export function ShopCheckoutForm({
             </span>
           </div>
           <div className="flex justify-between items-center text-muted-foreground">
-            <span>50% Advance Verified</span>
+            <span>
+              {isFullyVerified ? "50% Advance Verified" : "50% Advance Submitted"}
+            </span>
             <span className="font-semibold text-foreground">
               {advanceAmount.toFixed(2)} ETB
             </span>
@@ -563,88 +679,71 @@ export function ShopCheckoutForm({
             ) : (
               /* Prompt user for address */
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <MapPin className="size-4 text-primary" />
-                    <span>Search Delivery Location</span>
+                    <span>Delivery location</span>
                   </div>
-                  {hasProfileAddress && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] text-muted-foreground"
-                      onClick={() => {
-                        setAddress(defaultAddress!.trim());
-                        setCustomerLat(defaultLat!);
-                        setCustomerLon(defaultLon!);
-                        setIsEditingAddress(false);
-                      }}
-                    >
-                      Use saved location
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] gap-1 rounded-lg"
+                    disabled={locating}
+                    onClick={() => void handleMyLocation()}
+                  >
+                    <LocateFixed className={cn("size-3.5", locating && "animate-pulse")} />
+                    {locating ? "Locating…" : "My location"}
+                  </Button>
                 </div>
 
-                {!hasProfileAddress && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-900 dark:text-amber-200 mb-2">
-                    <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[11px] leading-tight">
-                      No saved location found on your profile. Please search and select your exact delivery location.
-                    </p>
+                {address === "Your location" && (
+                  <div className="rounded-xl bg-primary/5 border border-primary/15 px-3 py-2 text-xs">
+                    <p className="font-semibold text-foreground">Your location</p>
+                    {locationSubtitle && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                        {locationSubtitle}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 <LocationSearch
-                  defaultValue={address}
-                  placeholder="E.g., Bole Medhanialem..."
-                  onSelect={(loc) => {
+                  defaultValue={address === "Your location" ? "" : address}
+                  placeholder="Or search an address…"
+                  onSelect={(loc: LocationSuggestion) => {
                     setAddress(loc.display_name);
+                    setLocationSubtitle(null);
                     setCustomerLat(parseFloat(loc.lat));
                     setCustomerLon(parseFloat(loc.lon));
                   }}
                 />
 
                 {customerLat && customerLon && (
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <DeliveryRouteMap customerLat={customerLat} customerLon={customerLon} />
                   </div>
                 )}
               </div>
             )}
 
-            {/* Delivery fee & timing summary */}
             <div className="border-t border-border/60 pt-2.5 space-y-1.5 text-xs text-muted-foreground">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="size-3.5" /> Expected Delivery:
-                </span>
+                <span>Expected</span>
                 <span className="font-semibold text-foreground">
                   {formattedExpectedDate}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5">
-                  <Truck className="size-3.5" /> Delivery Fee:
-                </span>
+                <span>Delivery fee</span>
                 <span className="font-semibold text-primary">
                   {calculatingFee
-                    ? "Calculating…"
+                    ? "…"
                     : outOfBounds
-                    ? "Out of Delivery Zone"
-                    : `${deliveryFee.toFixed(2)} ETB`}
+                      ? "Out of range"
+                      : `${deliveryFee.toFixed(2)} ETB`}
                 </span>
               </div>
-              {deliveryDistanceKm && (
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <MapPin className="size-3.5" /> Distance:
-                  </span>
-                  <span className="font-medium text-foreground">
-                    {deliveryDistanceKm} km
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         ) : (
@@ -715,10 +814,26 @@ export function ShopCheckoutForm({
               </div>
             )}
 
+            {(() => {
+              const selected = pickupLocations.find(
+                (l) => l.id === selectedPickupId,
+              );
+              const lat =
+                selected?.lat != null ? Number(selected.lat) : null;
+              const lon =
+                selected?.lon != null ? Number(selected.lon) : null;
+              if (lat == null || lon == null) return null;
+              return (
+                <LocationPinMap
+                  lat={lat}
+                  lon={lon}
+                  label={selected?.name || "Pickup"}
+                />
+              );
+            })()}
+
             <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-2.5">
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="size-3.5" /> Ready for Pickup:
-              </span>
+              <span>Ready</span>
               <span className="font-semibold text-foreground">
                 {formattedExpectedDate}
               </span>

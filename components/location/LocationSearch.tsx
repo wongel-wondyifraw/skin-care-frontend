@@ -1,8 +1,9 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import { Loader2, MapPin, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { shopAutocomplete } from "@/lib/shop-api";
-import { useDebounce } from "@/hooks/use-debounce"; // Assuming this exists or I will just write inline
+import { API_BASE_URL } from "@/lib/api";
 
 export type LocationSuggestion = {
   place_id: string;
@@ -17,20 +18,37 @@ type Props = {
   defaultValue?: string;
 };
 
-export function LocationSearch({ onSelect, placeholder = "Search location...", defaultValue = "" }: Props) {
+/** Public LocationIQ autocomplete — works for admin and shop without auth. */
+async function fetchAutocomplete(query: string): Promise<LocationSuggestion[]> {
+  const res = await fetch(
+    `${API_BASE_URL}/location/autocomplete?q=${encodeURIComponent(query)}`,
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export function LocationSearch({
+  onSelect,
+  placeholder = "Search location...",
+  defaultValue = "",
+}: Props) {
   const [query, setQuery] = useState(defaultValue);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  
+
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Quick inline debounce if hook isn't available
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 500);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    setQuery(defaultValue);
+  }, [defaultValue]);
 
   useEffect(() => {
     if (!debouncedQuery || debouncedQuery.length < 3) {
@@ -42,7 +60,7 @@ export function LocationSearch({ onSelect, placeholder = "Search location...", d
     let isMounted = true;
     setIsLoading(true);
 
-    shopAutocomplete(debouncedQuery)
+    fetchAutocomplete(debouncedQuery)
       .then((results) => {
         if (isMounted) {
           setSuggestions(results);
@@ -61,10 +79,12 @@ export function LocationSearch({ onSelect, placeholder = "Search location...", d
     };
   }, [debouncedQuery]);
 
-  // Click outside to close
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
