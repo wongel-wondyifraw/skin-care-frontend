@@ -956,30 +956,26 @@ export function ShopCheckoutForm({
               const selected = pickupLocations.find(
                 (l) => l.id === selectedPickupId,
               );
-              const lat =
-                selected?.lat != null ? Number(selected.lat) : null;
-              const lon =
-                selected?.lon != null ? Number(selected.lon) : null;
+              if (!selected) return null;
+              const hasDesc = Boolean(selected.description?.trim());
+              const hasAddress = Boolean(selected.address?.trim());
+              if (!hasDesc && !hasAddress) return null;
               return (
-                <>
-                  {selected?.description?.trim() && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs">
-                      <p className="font-semibold text-foreground mb-0.5">
-                        How to find this pickup
-                      </p>
-                      <p className="text-muted-foreground leading-relaxed">
-                        {selected.description.trim()}
-                      </p>
-                    </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs space-y-1">
+                  <p className="font-semibold text-foreground">
+                    {selected.name}
+                  </p>
+                  {hasAddress && (
+                    <p className="text-muted-foreground leading-relaxed">
+                      {selected.address.trim()}
+                    </p>
                   )}
-                  {lat != null && lon != null ? (
-                    <LocationPinMap
-                      lat={lat}
-                      lon={lon}
-                      label={selected?.name || "Pickup"}
-                    />
-                  ) : null}
-                </>
+                  {hasDesc && (
+                    <p className="text-foreground/80 leading-relaxed">
+                      {selected.description!.trim()}
+                    </p>
+                  )}
+                </div>
               );
             })()}
 
