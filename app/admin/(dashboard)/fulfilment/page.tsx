@@ -38,6 +38,7 @@ import {
   type LocationSuggestion,
 } from "@/components/location/LocationSearch";
 import { LocationPinMap } from "@/components/location/LocationPinMap";
+import { MyLocationButton } from "@/components/location/MyLocationButton";
 import { shopReverseGeocode } from "@/lib/shop-api";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ interface PickupLocation {
   id: string;
   name: string;
   address: string;
+  description?: string | null;
   lat: number | null;
   lon: number | null;
   enabled: boolean;
@@ -56,11 +58,17 @@ interface PickupLocation {
 
 type DeliveryBand = { fromKm: number; toKm: number; fee: number };
 type DeliveryRate = { bands: DeliveryBand[]; maxRadiusKm: number };
-type DeliveryOrigin = { lat: number; lon: number; displayAddress: string };
+type DeliveryOrigin = {
+  lat: number;
+  lon: number;
+  displayAddress: string;
+  description?: string;
+};
 
 type PickupForm = {
   name: string;
   address: string;
+  description: string;
   enabled: boolean;
   lat: number | null;
   lon: number | null;
@@ -69,6 +77,7 @@ type PickupForm = {
 const emptyPickupForm = (): PickupForm => ({
   name: "",
   address: "",
+  description: "",
   enabled: true,
   lat: null,
   lon: null,
@@ -188,6 +197,7 @@ function PickupTab({
         body: JSON.stringify({
           name: createForm.name.trim(),
           address: createForm.address.trim(),
+          description: createForm.description.trim() || null,
           enabled: createForm.enabled,
           lat: createForm.lat,
           lon: createForm.lon,
@@ -227,6 +237,7 @@ function PickupTab({
           body: JSON.stringify({
             name: editForm.name.trim(),
             address: editForm.address.trim(),
+            description: editForm.description.trim() || null,
             enabled: editForm.enabled,
             lat: editForm.lat,
             lon: editForm.lon,
@@ -293,6 +304,7 @@ function PickupTab({
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Address</TableHead>
+                <TableHead>Notes</TableHead>
                 <TableHead>Map</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
@@ -302,8 +314,11 @@ function PickupTab({
               {locations.map((loc) => (
                 <TableRow key={loc.id}>
                   <TableCell className="font-medium">{loc.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs max-w-[240px] truncate">
+                  <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">
                     {loc.address}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs max-w-[160px] truncate">
+                    {loc.description?.trim() || "—"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {loc.lat != null && loc.lon != null ? (
@@ -335,6 +350,7 @@ function PickupTab({
                           setEditForm({
                             name: loc.name,
                             address: loc.address,
+                            description: loc.description ?? "",
                             enabled: loc.enabled,
                             lat: loc.lat != null ? Number(loc.lat) : null,
                             lon: loc.lon != null ? Number(loc.lon) : null,
@@ -462,7 +478,24 @@ function PickupFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Find on map</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Find on map</Label>
+              <MyLocationButton
+                className="h-7 text-[11px]"
+                onLocated={({ lat, lon, displayName }) => {
+                  setForm((p) => ({
+                    ...p,
+                    lat,
+                    lon,
+                    address: displayName || p.address,
+                  }));
+                }}
+                onError={(msg) => {
+                  // surface via form error path is awkward mid-dialog; pin still optional
+                  console.warn(msg);
+                }}
+              />
+            </div>
             <LocationSearch
               placeholder="Search address…"
               defaultValue={form.address}
@@ -484,6 +517,20 @@ function PickupFormDialog({
                 setForm((p) => ({ ...p, address: e.target.value }))
               }
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Description for customers</Label>
+            <Input
+              value={form.description}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, description: e.target.value }))
+              }
+              placeholder="e.g. Blue gate next to Abyssinia Bank, 2nd floor"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Shown in the shop and Telegram so customers can find this pickup
+              point.
+            </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -512,6 +559,7 @@ function DeliveryTab({ toast }: { toast: ReturnType<typeof useToast> }) {
     lat: 0,
     lon: 0,
     displayAddress: "",
+    description: "",
   });
   const [rate, setRate] = useState<DeliveryRate>({
     bands: [
@@ -532,7 +580,12 @@ function DeliveryTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       ).catch(() => null),
     ])
       .then(([originData, rateData]) => {
-        if (originData?.lat) setOrigin(originData);
+        if (originData?.lat) {
+          setOrigin({
+            ...originData,
+            description: originData.description ?? "",
+          });
+        }
         if (rateData && Array.isArray((rateData as DeliveryRate).bands)) {
           setRate(rateData as DeliveryRate);
         } else if (rateData && typeof (rateData as { maxRadiusKm?: number }).maxRadiusKm === "number") {
@@ -612,21 +665,35 @@ function DeliveryTab({ toast }: { toast: ReturnType<typeof useToast> }) {
         <p className="text-xs text-muted-foreground">
           Starting point for all distance-based delivery fees.
         </p>
-        <LocationSearch
-          placeholder="Search shop address…"
-          defaultValue={origin.displayAddress}
-          onSelect={(loc) => {
-            setOrigin({
-              displayAddress: loc.display_name,
-              lat: parseFloat(loc.lat),
-              lon: parseFloat(loc.lon),
-            });
-          }}
-        />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <LocationSearch
+            placeholder="Search shop address…"
+            defaultValue={origin.displayAddress}
+            onSelect={(loc) => {
+              setOrigin((prev) => ({
+                ...prev,
+                displayAddress: loc.display_name,
+                lat: parseFloat(loc.lat),
+                lon: parseFloat(loc.lon),
+              }));
+            }}
+          />
+          <MyLocationButton
+            onLocated={({ lat, lon, displayName }) => {
+              setOrigin((prev) => ({
+                ...prev,
+                lat,
+                lon,
+                displayAddress: displayName || prev.displayAddress,
+              }));
+            }}
+            onError={(msg) => toast.error("Location", msg)}
+          />
+        </div>
         <p className="text-xs text-muted-foreground">
           {origin.lat !== 0
             ? `${origin.displayAddress || "Pinned"} · ${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)}`
-            : "Search or click the map to set the shop origin."}
+            : "Search, use My location, or click the map to set the shop origin."}
         </p>
         <LocationPinMap
           lat={origin.lat !== 0 ? origin.lat : null}
@@ -653,6 +720,19 @@ function DeliveryTab({ toast }: { toast: ReturnType<typeof useToast> }) {
               .catch(() => {});
           }}
         />
+        <div className="space-y-2">
+          <Label>Delivery notes for customers</Label>
+          <Input
+            value={origin.description ?? ""}
+            onChange={(e) =>
+              setOrigin((prev) => ({ ...prev, description: e.target.value }))
+            }
+            placeholder="e.g. Call on arrival · leave at security desk if unavailable"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Shown during checkout so customers know how delivery drop-off works.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-4 rounded-xl border border-border p-4 bg-card">

@@ -34,6 +34,38 @@ type TelegramWebApp = {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  BackButton?: {
+    isVisible?: boolean;
+    show: () => void;
+    hide: () => void;
+    onClick: (cb: () => void) => void;
+    offClick: (cb: () => void) => void;
+  };
+  MainButton?: {
+    text: string;
+    setText?: (text: string) => void;
+    show?: () => void;
+    hide?: () => void;
+    onClick?: (cb: () => void) => void;
+    offClick?: (cb: () => void) => void;
+    setParams?: (params: Record<string, unknown>) => void;
+  };
+  SecondaryButton?: {
+    text: string;
+    setText?: (text: string) => void;
+    show?: () => void;
+    hide?: () => void;
+    onClick?: (cb: () => void) => void;
+    offClick?: (cb: () => void) => void;
+    setParams?: (params: Record<string, unknown>) => void;
+  };
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
+  setHeaderColor?: (color: string) => void;
+  themeParams?: {
+    bg_color?: string;
+    secondary_bg_color?: string;
+  };
 };
 
 declare global {

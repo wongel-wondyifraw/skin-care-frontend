@@ -320,21 +320,37 @@ export default function ShopOrdersPage() {
 
                 <div className="rounded-xl bg-muted/40 p-2.5 text-[11px] space-y-1.5 text-muted-foreground border border-border/60">
                   <div className="flex justify-between items-center gap-2">
-                    <span>📍 Location</span>
+                    <span className="inline-flex items-center gap-1 shrink-0">
+                      <MapPin className="size-3" /> Location
+                    </span>
                     <span className="font-medium text-foreground truncate max-w-[200px] text-right">
                       {isPickup
                         ? order.pickupLocation?.name || "Store pickup"
                         : order.deliveryAddress?.trim() || "Delivery"}
                     </span>
                   </div>
+                  {isPickup && order.pickupLocation?.description?.trim() && (
+                    <p className="text-[11px] text-foreground/80 leading-snug">
+                      {order.pickupLocation.description.trim()}
+                    </p>
+                  )}
+                  {isPickup && order.pickupLocation?.address?.trim() && (
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      {order.pickupLocation.address.trim()}
+                    </p>
+                  )}
                   <div className="flex justify-between items-center">
-                    <span>📅 Expected</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="size-3" /> Expected
+                    </span>
                     <span className="font-semibold text-foreground">
                       {formatExpected(order.expectedDeliveryDate)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
-                    <span>💵 Prepayment</span>
+                    <span className="inline-flex items-center gap-1">
+                      <CreditCard className="size-3" /> Prepayment
+                    </span>
                     <span className="font-semibold text-primary">
                       {advance.toFixed(2)} ETB
                     </span>

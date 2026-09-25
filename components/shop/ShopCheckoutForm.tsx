@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
 import { DeliveryRouteMap } from "@/components/location/DeliveryRouteMap";
 import { LocationPinMap } from "@/components/location/LocationPinMap";
+import { useToast } from "@/components/ToastProvider";
 
 type CheckoutLine = {
   productId: string;
@@ -69,6 +70,7 @@ export function ShopCheckoutForm({
   onSuccess,
 }: ShopCheckoutFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
 
   // Fulfilment state
   const [fulfilmentType, setFulfilmentType] =
@@ -79,8 +81,14 @@ export function ShopCheckoutForm({
   );
   const [customerLat, setCustomerLat] = useState<number | undefined>(defaultLat ?? undefined);
   const [customerLon, setCustomerLon] = useState<number | undefined>(defaultLon ?? undefined);
-  const [deliveryFee, setDeliveryFee] = useState<number>(350);
-  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | undefined>();
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<
+    number | undefined
+  >();
+  const [deliveryBandLabel, setDeliveryBandLabel] = useState<string | null>(
+    null,
+  );
+  const [deliveryNotes, setDeliveryNotes] = useState<string | null>(null);
   const [calculatingFee, setCalculatingFee] = useState(false);
   const [outOfBounds, setOutOfBounds] = useState(false);
 
@@ -104,7 +112,6 @@ export function ShopCheckoutForm({
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [createdOrders, setCreatedOrders] = useState<ShopOrder[]>([]);
   /** idle → verifying (API in flight) → confirmed (short success beat) → completed page */
@@ -149,12 +156,16 @@ export function ShopCheckoutForm({
   useEffect(() => {
     if (fulfilmentType !== "delivery") {
       setDeliveryFee(0);
+      setDeliveryDistanceKm(undefined);
+      setDeliveryBandLabel(null);
       setOutOfBounds(false);
       return;
     }
 
     if (!customerLat || !customerLon) {
-      setDeliveryFee(350);
+      setDeliveryFee(0);
+      setDeliveryDistanceKm(undefined);
+      setDeliveryBandLabel(null);
       setOutOfBounds(false);
       return;
     }
@@ -163,15 +174,21 @@ export function ShopCheckoutForm({
       setCalculatingFee(true);
       shopFetchDeliveryFee(customerLat, customerLon)
         .then((res) => {
-          setDeliveryFee(res.fee);
+          setDeliveryFee(Number(res.fee) || 0);
           setDeliveryDistanceKm(res.distanceKm);
+          setDeliveryBandLabel(res.bandLabel ?? null);
           setOutOfBounds(!res.withinRadius);
+          if (res.originDescription) {
+            setDeliveryNotes(res.originDescription);
+          }
         })
         .catch(() => {
-          setDeliveryFee(350);
+          setDeliveryFee(0);
+          setDeliveryBandLabel(null);
+          setOutOfBounds(true);
         })
         .finally(() => setCalculatingFee(false));
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [customerLat, customerLon, fulfilmentType]);
@@ -237,11 +254,14 @@ export function ShopCheckoutForm({
 
   async function handleMyLocation() {
     if (!navigator.geolocation) {
-      setError("Geolocation is not supported on this device.");
+      toast({
+        title: "Location unavailable",
+        description: "Geolocation is not supported on this device.",
+        variant: "error",
+      });
       return;
     }
     setLocating(true);
-    setError(null);
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -268,9 +288,12 @@ export function ShopCheckoutForm({
         // label stays "Your location"
       }
     } catch {
-      setError(
-        "Could not read your location. Allow location access or search instead.",
-      );
+      toast({
+        title: "Location access",
+        description:
+          "Could not read your location. Allow location access or search instead.",
+        variant: "error",
+      });
     } finally {
       setLocating(false);
     }
@@ -283,31 +306,47 @@ export function ShopCheckoutForm({
     if (!lines.length) return;
 
     if (fulfilmentType === "delivery" && (!customerLat || !customerLon)) {
-      setError("Please search and select your delivery location to continue.");
+      toast({
+        title: "Delivery location",
+        description:
+          "Please search and select your delivery location to continue.",
+        variant: "error",
+      });
       setIsEditingAddress(true);
       return;
     }
 
     if (fulfilmentType === "delivery" && outOfBounds) {
-      setError("This location is outside our delivery area. Please choose Store Pickup or a closer address.");
+      toast({
+        title: "Outside delivery area",
+        description:
+          "This location is outside our delivery area. Please choose Store Pickup or a closer address.",
+        variant: "error",
+      });
       return;
     }
 
     if (fulfilmentType === "pickup" && !selectedPickupId) {
-      setError("Please select a pickup location.");
+      toast({
+        title: "Pickup location",
+        description: "Please select a pickup location.",
+        variant: "error",
+      });
       return;
     }
 
     const evidenceUrlOrText = paymentEvidenceText.trim();
     if (!evidenceFile && !evidenceUrlOrText) {
-      setError(
-        "Paste your transaction ID or upload a receipt screenshot so we can verify payment.",
-      );
+      toast({
+        title: "Payment evidence",
+        description:
+          "Paste your transaction ID or upload a receipt screenshot so we can verify payment.",
+        variant: "error",
+      });
       return;
     }
 
     setSubmitting(true);
-    setError(null);
     setVerifyPhase("verifying");
 
     try {
@@ -356,11 +395,15 @@ export function ShopCheckoutForm({
       onSuccess?.();
     } catch (err) {
       setVerifyPhase("idle");
-      setError(
-        err instanceof ShopApiError
-          ? err.message
-          : "Could not place your order. Please try again.",
-      );
+      toast({
+        title: "Order failed",
+        description:
+          err instanceof ShopApiError
+            ? err.message
+            : "Could not place your order. Please try again.",
+        variant: "error",
+        durationMs: 6000,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -815,6 +858,25 @@ export function ShopCheckoutForm({
                       : `${deliveryFee.toFixed(2)} ETB`}
                 </span>
               </div>
+              {!calculatingFee &&
+                !outOfBounds &&
+                customerLat &&
+                customerLon &&
+                (deliveryDistanceKm != null || deliveryBandLabel) && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {deliveryDistanceKm != null
+                      ? `${deliveryDistanceKm.toFixed(1)} km`
+                      : ""}
+                    {deliveryBandLabel
+                      ? `${deliveryDistanceKm != null ? " · " : ""}Band ${deliveryBandLabel}`
+                      : ""}
+                  </p>
+                )}
+              {deliveryNotes && (
+                <p className="text-[11px] text-foreground/80 bg-muted/40 rounded-lg px-2.5 py-2 border border-border/50">
+                  {deliveryNotes}
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -878,6 +940,11 @@ export function ShopCheckoutForm({
                         <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                           {loc.address}
                         </p>
+                        {loc.description?.trim() && (
+                          <p className="text-[11px] text-foreground mt-1.5 leading-snug">
+                            {loc.description.trim()}
+                          </p>
+                        )}
                       </div>
                     </button>
                   );
@@ -893,13 +960,26 @@ export function ShopCheckoutForm({
                 selected?.lat != null ? Number(selected.lat) : null;
               const lon =
                 selected?.lon != null ? Number(selected.lon) : null;
-              if (lat == null || lon == null) return null;
               return (
-                <LocationPinMap
-                  lat={lat}
-                  lon={lon}
-                  label={selected?.name || "Pickup"}
-                />
+                <>
+                  {selected?.description?.trim() && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs">
+                      <p className="font-semibold text-foreground mb-0.5">
+                        How to find this pickup
+                      </p>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {selected.description.trim()}
+                      </p>
+                    </div>
+                  )}
+                  {lat != null && lon != null ? (
+                    <LocationPinMap
+                      lat={lat}
+                      lon={lon}
+                      label={selected?.name || "Pickup"}
+                    />
+                  ) : null}
+                </>
               );
             })()}
 
@@ -1225,12 +1305,6 @@ export function ShopCheckoutForm({
           />
         </div>
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-          {error}
-        </div>
-      )}
 
       {/* Final Action Button */}
       <Button

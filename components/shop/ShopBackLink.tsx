@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTelegramBackButtonActive } from "@/components/shop/ShopTelegramChrome";
 
 type ShopBackLinkProps = {
   href: string;
@@ -11,12 +12,19 @@ type ShopBackLinkProps = {
   className?: string;
 };
 
-/** Consistent back control for Telegram shop subpages. */
+/**
+ * In-app back control for browser / non-Telegram.
+ * Inside Telegram Mini App, the native header BackButton handles this
+ * (so people use Telegram’s back instead of the stock close/X).
+ */
 export function ShopBackLink({
   href,
   label = "Back",
   className,
 }: ShopBackLinkProps) {
+  const telegramBack = useTelegramBackButtonActive();
+  if (telegramBack) return null;
+
   return (
     <Button
       asChild

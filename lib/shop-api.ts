@@ -28,6 +28,7 @@ export type PickupLocation = {
   id: string;
   name: string;
   address: string;
+  description?: string | null;
   lat?: number | null;
   lon?: number | null;
   enabled?: boolean;
@@ -272,6 +273,8 @@ export async function shopFetchDeliveryFee(lat?: number, lon?: number) {
     durationMinutes: number;
     withinRadius: boolean;
     bandLabel?: string | null;
+    originDescription?: string | null;
+    originAddress?: string | null;
   }>(`/shop/delivery-fee${qs}`);
 }
 
