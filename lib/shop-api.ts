@@ -55,10 +55,15 @@ export type ShopOrder = {
   deliveryFee?: number;
   expectedDeliveryDate?: string | null;
   advancePaymentAmount?: number;
+  amountPaid?: number;
+  paymentStage?: "unpaid" | "partial" | "full";
   paymentMethod?: string | null;
   paymentEvidence?: string | null;
   paymentSubmittedAt?: string | null;
   paymentVerifiedAt?: string | null;
+  balancePaymentEvidence?: string | null;
+  balancePaymentMethod?: string | null;
+  balanceVerifiedAt?: string | null;
   verifyEtStatus?: string | null;
   verifyEtRequestId?: string | null;
   createdAt: string;

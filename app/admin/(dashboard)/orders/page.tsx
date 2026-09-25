@@ -12,8 +12,8 @@ import {
   CreditCard,
   MapPin,
   Truck,
-  ShieldAlert,
   Loader2,
+  Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,10 +63,14 @@ type Order = {
   deliveryFee?: number | string;
   expectedDeliveryDate?: string | null;
   advancePaymentAmount?: number | string;
+  amountPaid?: number | string;
+  paymentStage?: "unpaid" | "partial" | "full";
   paymentMethod?: string | null;
   paymentEvidence?: string | null;
   paymentSubmittedAt?: string | null;
   paymentVerifiedAt?: string | null;
+  balancePaymentEvidence?: string | null;
+  balancePaymentMethod?: string | null;
   verifyEtStatus?: string | null;
   customer?: {
     id: string;
@@ -79,15 +83,27 @@ type Order = {
   } | null;
 };
 
+function lineTotal(order: Order) {
+  const unit = typeof order.cost === "number" ? order.cost : Number(order.cost);
+  const fee = Number(order.deliveryFee) || 0;
+  return (Number.isNaN(unit) ? 0 : unit) * (order.quantity || 1) + fee;
+}
+
+function paymentMethodLabel(method?: string | null) {
+  if (method === "telebirr") return "Telebirr";
+  if (method === "bank") return "CBE";
+  return method || null;
+}
+
 type StatusFilter = "all" | OrderStatus;
 
 function VerifyEtBadge({ status }: { status?: string | null }) {
   if (!status || status === "skipped") return null;
-  
+
   if (status === "verified") {
     return (
       <span className="inline-flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-700 mt-1">
-        <ShieldCheck className="size-3" /> Auto-Verified
+        <ShieldCheck className="size-3" /> Verified
       </span>
     );
   }
@@ -100,7 +116,7 @@ function VerifyEtBadge({ status }: { status?: string | null }) {
   }
   return (
     <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 mt-1">
-      <ShieldAlert className="size-3" /> Failed: {status}
+      <X className="size-3" /> Failed: {status}
     </span>
   );
 }
@@ -108,10 +124,6 @@ function VerifyEtBadge({ status }: { status?: string | null }) {
 function unitCost(cost: number | string) {
   const n = typeof cost === "number" ? cost : Number(cost);
   return Number.isNaN(n) ? 0 : n;
-}
-
-function lineTotal(order: Order) {
-  return unitCost(order.cost) * (order.quantity || 1);
 }
 
 export default function OrdersPage() {
@@ -262,20 +274,24 @@ export default function OrdersPage() {
     }
   }
 
-  async function autoVerifyPayment(order: Order) {
+  async function markFullyPaid(order: Order) {
     setUpdatingId(order.id);
     try {
-      await apiFetch(`/orders/${order.id}/auto-verify`, {
+      await apiFetch(`/orders/${order.id}/mark-fully-paid`, {
         method: "PATCH",
       });
       invalidateApiCache("/orders");
-      toast.success("Verification triggered", "Check the status in a moment.");
+      invalidateApiCache("/dashboard-summary");
+      toast.success(
+        "Marked fully paid",
+        `Remaining balance for ${order.customer?.fullName ?? "customer"} recorded.`,
+      );
       setRefreshKey((k) => k + 1);
     } catch (err) {
       if (isNetworkError(err)) {
         reportNetworkError(err);
       } else if (err instanceof Error) {
-        toast.error("Verification failed", err.message);
+        toast.error("Could not mark fully paid", err.message);
       }
     } finally {
       setUpdatingId(null);
@@ -304,6 +320,11 @@ export default function OrdersPage() {
 
   function OrderActions({ order }: { order: Order }) {
     const busy = updatingId === order.id;
+    const stage = order.paymentStage;
+    const canMarkFull =
+      (order.status === "confirmed" || order.status === "delivered") &&
+      stage !== "full" &&
+      (stage === "partial" || Boolean(order.paymentVerifiedAt));
 
     return (
       <div className="flex flex-wrap items-center gap-1.5">
@@ -319,24 +340,24 @@ export default function OrdersPage() {
               <ShieldCheck className="size-3.5" />
               Verify
             </Button>
-            {order.paymentEvidence && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                disabled={busy}
-                onClick={() => autoVerifyPayment(order)}
-                title="Re-verify with Verify.ET"
-              >
-                <ShieldAlert className="size-3.5" />
-                Auto-Verify
-              </Button>
-            )}
           </div>
         )}
 
+        {canMarkFull && (
+          <Button
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1 bg-teal-700 hover:bg-teal-800 text-white"
+            disabled={busy}
+            onClick={() => markFullyPaid(order)}
+            title="Mark remaining balance as paid"
+          >
+            <Banknote className="size-3.5" />
+            Mark fully paid
+          </Button>
+        )}
+
         {/* View Receipt action */}
-        {order.paymentEvidence && (
+        {(order.paymentEvidence || order.balancePaymentEvidence) && (
           <Button
             size="sm"
             variant="outline"
@@ -397,7 +418,7 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Orders</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage customer orders, verify 50% advance payments, and update fulfilment status.
+            Manage customer orders, verify payments (CBE / Telebirr), and mark half-paid orders as fully paid.
           </p>
         </div>
       </div>
@@ -419,7 +440,7 @@ export default function OrdersPage() {
             { value: "all", label: "All statuses" },
             { value: "awaiting_payment", label: "Awaiting Payment" },
             { value: "payment_submitted", label: "Payment Submitted" },
-            { value: "confirmed", label: "Confirmed" },
+            { value: "confirmed", label: "Verified" },
             { value: "delivered", label: "Delivered" },
             { value: "cancelled", label: "Cancelled" },
           ]}
@@ -496,7 +517,7 @@ export default function OrdersPage() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Product & Total</TableHead>
                   <TableHead>Fulfilment</TableHead>
-                  <TableHead>50% Advance</TableHead>
+                  <TableHead>Payment</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-56 text-right">Actions</TableHead>
@@ -556,11 +577,20 @@ export default function OrdersPage() {
                       <TableCell>
                         <div className="text-xs space-y-0.5">
                           <span className="font-semibold text-foreground">
-                            {advance.toFixed(2)} ETB
+                            {o.paymentStage === "full"
+                              ? `Full ${totalAmt.toFixed(2)} ETB`
+                              : `Advance ${advance.toFixed(2)} ETB`}
                           </span>
-                          {o.paymentMethod && (
-                            <p className="text-[11px] text-muted-foreground capitalize">
-                              via {o.paymentMethod}
+                          {paymentMethodLabel(o.paymentMethod) && (
+                            <p className="text-[11px] text-muted-foreground">
+                              via {paymentMethodLabel(o.paymentMethod)}
+                              {o.paymentStage === "partial" ? " · half verified" : ""}
+                              {o.paymentStage === "full" ? " · fully paid" : ""}
+                            </p>
+                          )}
+                          {!o.paymentMethod && o.paymentStage === "partial" && (
+                            <p className="text-[11px] text-amber-700">
+                              Half verified
                             </p>
                           )}
                         </div>
@@ -570,7 +600,12 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start">
-                          <OrderStatusIndicator status={o.status} showLabel />
+                          <OrderStatusIndicator
+                            status={o.status}
+                            showLabel
+                            paymentMethod={o.paymentMethod}
+                            paymentStage={o.paymentStage}
+                          />
                           <VerifyEtBadge status={o.verifyEtStatus} />
                         </div>
                       </TableCell>
@@ -609,7 +644,12 @@ export default function OrdersPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
-                      <OrderStatusIndicator status={o.status} showLabel />
+                      <OrderStatusIndicator
+                        status={o.status}
+                        showLabel
+                        paymentMethod={o.paymentMethod}
+                        paymentStage={o.paymentStage}
+                      />
                       <VerifyEtBadge status={o.verifyEtStatus} />
                     </div>
                   </div>
@@ -711,7 +751,10 @@ export default function OrdersPage() {
                 <p>
                   <span className="text-muted-foreground">Method:</span>{" "}
                   <b className="capitalize font-mono">
-                    {evidenceTarget.paymentMethod || "Direct Submission"}
+                    {evidenceTarget.paymentMethod
+                      ? paymentMethodLabel(evidenceTarget.paymentMethod) ||
+                        evidenceTarget.paymentMethod
+                      : "Direct Submission"}
                   </b>
                 </p>
               </div>

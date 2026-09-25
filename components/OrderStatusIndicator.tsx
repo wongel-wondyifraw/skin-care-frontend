@@ -9,6 +9,8 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
+export type PaymentStage = "unpaid" | "partial" | "full";
+
 const STATUS_META: Record<
   OrderStatus,
   {
@@ -31,7 +33,7 @@ const STATUS_META: Record<
     icon: "text-blue-600",
   },
   confirmed: {
-    label: "Confirmed",
+    label: "Verified",
     Icon: ShieldCheck,
     wrap: "bg-emerald-50 text-emerald-700 border border-emerald-200/50",
     icon: "text-emerald-600",
@@ -56,24 +58,48 @@ const STATUS_META: Record<
   },
 };
 
+function methodLabel(method?: string | null) {
+  if (method === "telebirr") return "Telebirr";
+  if (method === "bank") return "CBE";
+  return null;
+}
+
 /** Compact icon (dashboard lists) or icon + label (tables). */
 export function OrderStatusIndicator({
   status,
   showLabel = false,
   className,
+  paymentMethod,
+  paymentStage,
 }: {
   status: OrderStatus;
   showLabel?: boolean;
   className?: string;
+  paymentMethod?: string | null;
+  paymentStage?: PaymentStage | null;
 }) {
   const meta = STATUS_META[status] ?? STATUS_META.pending;
   const { Icon } = meta;
+  const method = methodLabel(paymentMethod);
+
+  let label = meta.label;
+  if (status === "confirmed") {
+    if (paymentStage === "full") {
+      label = method ? `Fully paid · ${method}` : "Fully paid";
+    } else {
+      label = method ? `Verified · ${method}` : "Verified";
+    }
+  } else if (status === "delivered" && paymentStage === "full" && method) {
+    label = `Delivered · ${method}`;
+  } else if (status === "delivered" && paymentStage === "partial") {
+    label = method ? `Delivered · half paid · ${method}` : "Delivered · half paid";
+  }
 
   if (!showLabel) {
     return (
       <span
-        title={meta.label}
-        aria-label={meta.label}
+        title={label}
+        aria-label={label}
         className={cn(
           "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
           meta.wrap,
@@ -94,7 +120,7 @@ export function OrderStatusIndicator({
       )}
     >
       <Icon className={cn("size-3 stroke-[2.25]", meta.icon)} aria-hidden />
-      {meta.label}
+      {label}
     </span>
   );
 }

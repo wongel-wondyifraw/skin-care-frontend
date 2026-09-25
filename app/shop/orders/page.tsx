@@ -36,10 +36,45 @@ const FILTERS: { value: ShopOrderStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "awaiting_payment", label: "Awaiting Pay" },
   { value: "payment_submitted", label: "Under Review" },
-  { value: "confirmed", label: "Confirmed" },
+  { value: "confirmed", label: "Verified" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
 ];
+
+function orderLineTotal(order: ShopOrder) {
+  const unit = Number(order.cost) || 0;
+  const qty = Math.max(1, order.quantity || 1);
+  const fee = Number(order.deliveryFee) || 0;
+  return Math.round((unit * qty + fee) * 100) / 100;
+}
+
+function orderPaidAmount(order: ShopOrder) {
+  const paid = Number(order.amountPaid) || 0;
+  if (paid > 0) return paid;
+  if (
+    order.paymentStage === "partial" ||
+    order.paymentStage === "full" ||
+    order.paymentVerifiedAt ||
+    order.status === "confirmed" ||
+    order.status === "delivered"
+  ) {
+    return Number(order.advancePaymentAmount) || 0;
+  }
+  return 0;
+}
+
+function orderRemaining(order: ShopOrder) {
+  if (order.paymentStage === "full") return 0;
+  return Math.max(0, Math.round((orderLineTotal(order) - orderPaidAmount(order)) * 100) / 100);
+}
+
+function canPayRemaining(order: ShopOrder) {
+  return (
+    (order.status === "confirmed" || order.status === "delivered") &&
+    order.paymentStage !== "full" &&
+    orderRemaining(order) > 0.01
+  );
+}
 
 function formatDate(value: string) {
   try {
@@ -75,6 +110,7 @@ export default function ShopOrdersPage() {
 
   // Payment modal state
   const [payingOrder, setPayingOrder] = useState<ShopOrder | null>(null);
+  const [payingMode, setPayingMode] = useState<"advance" | "balance">("advance");
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
   const [payMethod, setPayMethod] = useState<"bank" | "telebirr" | null>(null);
   const [payEvidenceText, setPayEvidenceText] = useState("");
@@ -285,11 +321,20 @@ export default function ShopOrdersPage() {
               "payment_submitted",
             ];
             const isPickup = order.fulfilmentType === "pickup";
-            const total = Number(order.cost) * order.quantity;
+            const total = orderLineTotal(order);
             const advance =
               order.advancePaymentAmount != null
                 ? Number(order.advancePaymentAmount)
                 : total * 0.5;
+            const paid = orderPaidAmount(order);
+            const remaining = orderRemaining(order);
+            const paidPct =
+              total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+            const showProgress =
+              order.paymentStage === "partial" ||
+              order.paymentStage === "full" ||
+              (Boolean(order.paymentVerifiedAt) &&
+                (order.status === "confirmed" || order.status === "delivered"));
 
             return (
               <li
@@ -313,7 +358,12 @@ export default function ShopOrdersPage() {
                       <p className="text-sm font-semibold line-clamp-1">
                         {order.product?.name ?? "Product"}
                       </p>
-                      <OrderStatusIndicator status={order.status} showLabel />
+                      <OrderStatusIndicator
+                        status={order.status}
+                        showLabel
+                        paymentMethod={order.paymentMethod}
+                        paymentStage={order.paymentStage}
+                      />
                     </div>
 
                     <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -352,14 +402,50 @@ export default function ShopOrdersPage() {
                       {formatExpected(order.expectedDeliveryDate)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
-                    <span className="inline-flex items-center gap-1">
-                      <CreditCard className="size-3" /> Prepayment
-                    </span>
-                    <span className="font-semibold text-primary">
-                      {advance.toFixed(2)} ETB
-                    </span>
-                  </div>
+                  {showProgress ? (
+                    <div className="border-t border-border/40 pt-2 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="inline-flex items-center gap-1">
+                          <CreditCard className="size-3" /> Payment
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          {paid.toFixed(2)} / {total.toFixed(2)} ETB
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                        role="progressbar"
+                        aria-valuenow={paidPct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`Paid ${paidPct}%`}
+                      >
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            order.paymentStage === "full"
+                              ? "bg-emerald-600"
+                              : "bg-primary",
+                          )}
+                          style={{ width: `${paidPct}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {order.paymentStage === "full"
+                          ? "Fully paid"
+                          : `Remaining ${remaining.toFixed(2)} ETB`}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        <CreditCard className="size-3" /> Prepayment
+                      </span>
+                      <span className="font-semibold text-primary">
+                        {advance.toFixed(2)} ETB
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action buttons */}
@@ -369,10 +455,28 @@ export default function ShopOrdersPage() {
                       type="button"
                       size="sm"
                       className="h-8 text-xs font-semibold rounded-xl flex-1 gap-1.5"
-                      onClick={() => setPayingOrder(order)}
+                      onClick={() => {
+                        setPayingMode("advance");
+                        setPayingOrder(order);
+                      }}
                     >
                       <CreditCard className="size-3.5" />
                       Pay 50% Advance ({advance.toFixed(2)} ETB)
+                    </Button>
+                  )}
+
+                  {canPayRemaining(order) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-xs font-semibold rounded-xl flex-1 gap-1.5"
+                      onClick={() => {
+                        setPayingMode("balance");
+                        setPayingOrder(order);
+                      }}
+                    >
+                      <CreditCard className="size-3.5" />
+                      Pay remaining ({remaining.toFixed(2)} ETB)
                     </Button>
                   )}
 
@@ -398,21 +502,25 @@ export default function ShopOrdersPage() {
       {/* Support number reminder */}
       <ShopSupportContact className="mt-4" />
 
-      {/* Pay 50% Modal */}
+      {/* Pay advance / remaining modal */}
       {payingOrder && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-card border border-border w-full max-w-md rounded-3xl p-5 space-y-4 shadow-xl">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-bold text-base text-foreground">
-                  Submit 50% Payment Evidence
+                  {payingMode === "balance"
+                    ? "Pay remaining balance"
+                    : "Submit 50% Payment Evidence"}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {payingOrder.product?.name} · Advance:{" "}
+                  {payingOrder.product?.name} ·{" "}
+                  {payingMode === "balance" ? "Remaining" : "Advance"}:{" "}
                   <span className="font-semibold text-emerald-700">
-                    {(
-                      Number(payingOrder.advancePaymentAmount) ||
-                      Number(payingOrder.cost) * payingOrder.quantity * 0.5
+                    {(payingMode === "balance"
+                      ? orderRemaining(payingOrder)
+                      : Number(payingOrder.advancePaymentAmount) ||
+                        orderLineTotal(payingOrder) * 0.5
                     ).toFixed(2)}{" "}
                     ETB
                   </span>
