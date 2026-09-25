@@ -94,6 +94,29 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hideTelegramBottomButtons(webApp: TelegramWebApp | null) {
+  if (!webApp) return;
+  try {
+    webApp.MainButton?.hide?.();
+    webApp.SecondaryButton?.hide?.();
+    webApp.MainButton?.setParams?.({ is_visible: false, text: "" });
+    webApp.SecondaryButton?.setParams?.({ is_visible: false, text: "" });
+  } catch {
+    // ignore
+  }
+}
+
+function prepareWebApp(webApp: TelegramWebApp | null) {
+  if (!webApp) return;
+  try {
+    webApp.ready();
+    webApp.expand();
+  } catch {
+    // ignore
+  }
+  hideTelegramBottomButtons(webApp);
+}
+
 function readTelegramUserId(webApp: TelegramWebApp | null): number | null {
   if (!webApp) return null;
 
@@ -149,8 +172,7 @@ async function resolveTelegramId(
   if (!webApp) return null;
 
   try {
-    webApp.ready();
-    webApp.expand();
+    prepareWebApp(webApp);
   } catch {
     // ignore
   }
@@ -178,12 +200,7 @@ async function authenticate(): Promise<{
       const customer = await shopFetchMe();
       const webApp = window.Telegram?.WebApp ?? (await waitForWebApp(800));
       if (webApp) {
-        try {
-          webApp.ready();
-          webApp.expand();
-        } catch {
-          // ignore
-        }
+        prepareWebApp(webApp);
       }
       return { customer, webApp };
     } catch {
@@ -193,12 +210,7 @@ async function authenticate(): Promise<{
 
   const webApp = await waitForWebApp();
   if (webApp) {
-    try {
-      webApp.ready();
-      webApp.expand();
-    } catch {
-      // ignore
-    }
+    prepareWebApp(webApp);
   }
 
   const telegramId = await resolveTelegramId(webApp);

@@ -47,10 +47,7 @@ type Tab = "pickup" | "delivery";
 interface PickupLocation {
   id: string;
   name: string;
-  address: string;
   description?: string | null;
-  lat: number | null;
-  lon: number | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -67,20 +64,14 @@ type DeliveryOrigin = {
 
 type PickupForm = {
   name: string;
-  address: string;
   description: string;
   enabled: boolean;
-  lat: number | null;
-  lon: number | null;
 };
 
 const emptyPickupForm = (): PickupForm => ({
   name: "",
-  address: "",
   description: "",
   enabled: true,
-  lat: null,
-  lon: null,
 });
 
 export default function FulfilmentPage() {
@@ -92,7 +83,7 @@ export default function FulfilmentPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Fulfilment</h1>
         <p className="text-sm text-muted-foreground">
-          Pickup store pins and delivery pricing by distance bands.
+          Text pickup locations and delivery pricing by distance bands.
         </p>
       </div>
 
@@ -167,26 +158,10 @@ function PickupTab({
     void loadLocations();
   }, []);
 
-  function applySuggestion(
-    setForm: React.Dispatch<React.SetStateAction<PickupForm>>,
-    loc: LocationSuggestion,
-  ) {
-    setForm((prev) => ({
-      ...prev,
-      address: loc.display_name,
-      lat: parseFloat(loc.lat),
-      lon: parseFloat(loc.lon),
-    }));
-  }
-
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!createForm.name.trim() || !createForm.address.trim()) {
-      setCreateError("Name and address are required.");
-      return;
-    }
-    if (createForm.lat == null || createForm.lon == null) {
-      setCreateError("Pick a location on the map search so we can save coordinates.");
+    if (!createForm.name.trim() || !createForm.description.trim()) {
+      setCreateError("Name and description are required.");
       return;
     }
     setCreateBusy(true);
@@ -196,11 +171,8 @@ function PickupTab({
         method: "POST",
         body: JSON.stringify({
           name: createForm.name.trim(),
-          address: createForm.address.trim(),
-          description: createForm.description.trim() || null,
+          description: createForm.description.trim(),
           enabled: createForm.enabled,
-          lat: createForm.lat,
-          lon: createForm.lon,
         }),
       });
       invalidateApiCache("/pickup-locations");
@@ -219,12 +191,8 @@ function PickupTab({
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editTarget) return;
-    if (!editForm.name.trim() || !editForm.address.trim()) {
-      setEditError("Name and address are required.");
-      return;
-    }
-    if (editForm.lat == null || editForm.lon == null) {
-      setEditError("Pick a map location so coordinates are saved.");
+    if (!editForm.name.trim() || !editForm.description.trim()) {
+      setEditError("Name and description are required.");
       return;
     }
     setEditBusy(true);
@@ -236,11 +204,8 @@ function PickupTab({
           method: "PATCH",
           body: JSON.stringify({
             name: editForm.name.trim(),
-            address: editForm.address.trim(),
-            description: editForm.description.trim() || null,
+            description: editForm.description.trim(),
             enabled: editForm.enabled,
-            lat: editForm.lat,
-            lon: editForm.lon,
           }),
         },
       );
@@ -303,9 +268,7 @@ function PickupTab({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Map</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
@@ -314,20 +277,10 @@ function PickupTab({
               {locations.map((loc) => (
                 <TableRow key={loc.id}>
                   <TableCell className="font-medium">{loc.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">
-                    {loc.address}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs max-w-[160px] truncate">
-                    {loc.description?.trim() || "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {loc.lat != null && loc.lon != null ? (
-                      <span className="inline-flex items-center gap-1 text-green-700">
-                        <MapPin className="size-3" /> Pinned
-                      </span>
-                    ) : (
-                      <span className="text-amber-600">No pin</span>
-                    )}
+                  <TableCell className="text-muted-foreground text-xs max-w-[320px]">
+                    <span className="line-clamp-2">
+                      {loc.description?.trim() || "—"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {loc.enabled ? (
@@ -349,11 +302,8 @@ function PickupTab({
                           setEditTarget(loc);
                           setEditForm({
                             name: loc.name,
-                            address: loc.address,
                             description: loc.description ?? "",
                             enabled: loc.enabled,
-                            lat: loc.lat != null ? Number(loc.lat) : null,
-                            lon: loc.lon != null ? Number(loc.lon) : null,
                           });
                           setEditError(null);
                         }}
@@ -373,8 +323,11 @@ function PickupTab({
               ))}
               {!locations.length && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
-                    No pickup locations yet.
+                  <TableCell
+                    colSpan={4}
+                    className="text-center text-muted-foreground text-sm py-8"
+                  >
+                    No pickup locations yet. Add one with a name and description.
                   </TableCell>
                 </TableRow>
               )}
@@ -392,7 +345,6 @@ function PickupTab({
         error={createError}
         busy={createBusy}
         onSubmit={handleCreate}
-        onPick={(loc) => applySuggestion(setCreateForm, loc)}
       />
 
       <PickupFormDialog
@@ -404,7 +356,6 @@ function PickupTab({
         error={editError}
         busy={editBusy}
         onSubmit={handleEdit}
-        onPick={(loc) => applySuggestion(setEditForm, loc)}
       />
 
       <ConfirmModal
@@ -433,7 +384,6 @@ function PickupFormDialog({
   error,
   busy,
   onSubmit,
-  onPick,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -443,28 +393,10 @@ function PickupFormDialog({
   error: string | null;
   busy: boolean;
   onSubmit: (e: React.FormEvent) => void;
-  onPick: (loc: LocationSuggestion) => void;
 }) {
-  async function handleMapPick(lat: number, lon: number) {
-    setForm((p) => ({ ...p, lat, lon }));
-    try {
-      const rev = await shopReverseGeocode(lat, lon);
-      if (rev?.displayName) {
-        setForm((p) => ({
-          ...p,
-          lat,
-          lon,
-          address: rev.displayName,
-        }));
-      }
-    } catch {
-      // pin still set; address can be typed
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -478,58 +410,18 @@ function PickupFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Find on map</Label>
-              <MyLocationButton
-                className="h-7 text-[11px]"
-                onLocated={({ lat, lon, displayName }) => {
-                  setForm((p) => ({
-                    ...p,
-                    lat,
-                    lon,
-                    address: displayName || p.address,
-                  }));
-                }}
-                onError={(msg) => {
-                  // surface via form error path is awkward mid-dialog; pin still optional
-                  console.warn(msg);
-                }}
-              />
-            </div>
-            <LocationSearch
-              placeholder="Search address…"
-              defaultValue={form.address}
-              onSelect={onPick}
-            />
-          </div>
-          <LocationPinMap
-            lat={form.lat}
-            lon={form.lon}
-            label={form.name || "Pickup"}
-            heightClass="h-[200px] md:h-[480px]"
-            onPick={(lat, lon) => void handleMapPick(lat, lon)}
-          />
-          <div className="space-y-2">
-            <Label>Address text</Label>
-            <Input
-              value={form.address}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, address: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
             <Label>Description for customers</Label>
-            <Input
+            <textarea
               value={form.description}
               onChange={(e) =>
                 setForm((p) => ({ ...p, description: e.target.value }))
               }
-              placeholder="e.g. Blue gate next to Abyssinia Bank, 2nd floor"
+              placeholder="e.g. Bole Road near Edna Mall · Blue gate · Open 9am–6pm"
+              rows={4}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <p className="text-[11px] text-muted-foreground">
-              Shown in the shop and Telegram so customers can find this pickup
-              point.
+              Address, landmarks, and how to find the store — text only, no map.
             </p>
           </div>
           <label className="flex items-center gap-2 text-sm">

@@ -3,10 +3,12 @@
 import { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ShoppingBag, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
 import { activeDiscountPercent } from "@/lib/shop-pricing";
+import { flyImageToCart } from "@/lib/fly-to-cart";
 
 export type ShopProduct = {
   id: string;
@@ -31,7 +33,7 @@ function skinLabels(prod: ShopProduct) {
 type ShopProductTileProps = {
   prod: ShopProduct;
   priority?: boolean;
-  onAddToCart: (p: ShopProduct) => void;
+  onAddToCart: (p: ShopProduct, sourceEl?: HTMLElement | null) => void;
   onOrderNow: (p: ShopProduct) => void;
 };
 
@@ -52,6 +54,7 @@ function ShopProductTileComponent({
       <Link
         href={`/shop/${prod.id}`}
         className="relative block aspect-[3/4] overflow-hidden bg-muted no-underline"
+        data-product-image={prod.id}
       >
         <Image
           src={prod.image}
@@ -96,19 +99,29 @@ function ShopProductTileComponent({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 text-[11px] px-1"
+            className="h-8 text-[11px] px-1 gap-1"
             disabled={out}
-            onClick={() => onAddToCart(prod)}
+            onClick={(e) => {
+              const img = (e.currentTarget
+                .closest("article")
+                ?.querySelector(
+                  `[data-product-image="${prod.id}"]`,
+                ) as HTMLElement | null) ?? e.currentTarget;
+              flyImageToCart(img, prod.image);
+              onAddToCart(prod, img);
+            }}
           >
-            {out ? "Unavailable" : "Add to cart"}
+            {!out && <ShoppingCart className="size-3.5 shrink-0" />}
+            {out ? "Unavailable" : "Add"}
           </Button>
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[11px] px-1"
+            className="h-8 text-[11px] px-1 gap-1"
             disabled={out}
             onClick={() => onOrderNow(prod)}
           >
+            <ShoppingBag className="size-3.5 shrink-0" />
             Order
           </Button>
         </div>

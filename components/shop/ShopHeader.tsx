@@ -50,8 +50,9 @@ export function ShopHeader() {
             </Link>
             <Link
               href="/shop/cart"
+              data-cart-icon
               className={cn(
-                "relative inline-flex size-9 items-center justify-center rounded-full no-underline transition-colors",
+                "relative inline-flex size-9 items-center justify-center rounded-full no-underline transition-colors cart-icon-target",
                 checkoutActive
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-foreground hover:bg-muted",

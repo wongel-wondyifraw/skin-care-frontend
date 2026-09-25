@@ -27,10 +27,7 @@ export type FulfilmentType = "delivery" | "pickup";
 export type PickupLocation = {
   id: string;
   name: string;
-  address: string;
   description?: string | null;
-  lat?: number | null;
-  lon?: number | null;
   enabled?: boolean;
 };
 

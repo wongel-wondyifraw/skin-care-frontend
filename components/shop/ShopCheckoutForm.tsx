@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Loader2,
   LocateFixed,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShopPrice } from "@/components/shop/ShopPrice";
@@ -99,8 +100,8 @@ export function ShopCheckoutForm({
 
   // Payment details state
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"bank" | "telebirr">(
-    "bank",
+  const [paymentMethod, setPaymentMethod] = useState<"bank" | "telebirr" | null>(
+    null,
   );
   const [paymentEvidenceText, setPaymentEvidenceText] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
@@ -203,6 +204,11 @@ export function ShopCheckoutForm({
       setEvidencePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  }
+
+  function clearEvidenceFile() {
+    setEvidenceFile(null);
+    setEvidencePreview(null);
   }
 
   // Copy helpers
@@ -335,12 +341,21 @@ export function ShopCheckoutForm({
       return;
     }
 
+    if (!paymentMethod) {
+      toast({
+        title: "Payment method",
+        description: "Select CBE Bank or Telebirr first.",
+        variant: "error",
+      });
+      return;
+    }
+
     const evidenceUrlOrText = paymentEvidenceText.trim();
     if (!evidenceFile && !evidenceUrlOrText) {
       toast({
         title: "Payment evidence",
         description:
-          "Paste your transaction ID or upload a receipt screenshot so we can verify payment.",
+          "Paste your transaction number or upload a receipt screenshot so we can verify payment.",
         variant: "error",
       });
       return;
@@ -937,14 +952,9 @@ export function ShopCheckoutForm({
                             Free
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-                          {loc.address}
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          {loc.description?.trim() || "Store pickup"}
                         </p>
-                        {loc.description?.trim() && (
-                          <p className="text-[11px] text-foreground mt-1.5 leading-snug">
-                            {loc.description.trim()}
-                          </p>
-                        )}
                       </div>
                     </button>
                   );
@@ -956,25 +966,15 @@ export function ShopCheckoutForm({
               const selected = pickupLocations.find(
                 (l) => l.id === selectedPickupId,
               );
-              if (!selected) return null;
-              const hasDesc = Boolean(selected.description?.trim());
-              const hasAddress = Boolean(selected.address?.trim());
-              if (!hasDesc && !hasAddress) return null;
+              if (!selected?.description?.trim()) return null;
               return (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs space-y-1">
                   <p className="font-semibold text-foreground">
                     {selected.name}
                   </p>
-                  {hasAddress && (
-                    <p className="text-muted-foreground leading-relaxed">
-                      {selected.address.trim()}
-                    </p>
-                  )}
-                  {hasDesc && (
-                    <p className="text-foreground/80 leading-relaxed">
-                      {selected.description!.trim()}
-                    </p>
-                  )}
+                  <p className="text-muted-foreground leading-relaxed">
+                    {selected.description.trim()}
+                  </p>
                 </div>
               );
             })()}
@@ -1128,8 +1128,8 @@ export function ShopCheckoutForm({
           </button>
         </div>
 
-        {/* Account Information Card */}
-        {paymentMethod === "bank" ? (
+        {/* Account Information Card — only after method chosen */}
+        {paymentMethod === "bank" && (
           <div className="rounded-2xl border border-border bg-card p-4 text-xs space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div className="flex items-center gap-2">
@@ -1186,7 +1186,9 @@ export function ShopCheckoutForm({
               </span>
             </div>
           </div>
-        ) : (
+        )}
+
+        {paymentMethod === "telebirr" && (
           <div className="rounded-2xl border border-border bg-card p-4 text-xs space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div className="flex items-center gap-2">
@@ -1249,14 +1251,15 @@ export function ShopCheckoutForm({
           </div>
         )}
 
-        {/* Payment Evidence Input */}
+        {/* Payment Evidence — only after CBE / Telebirr selected */}
+        {paymentMethod && (
         <div className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <span className="text-xs font-semibold text-foreground block">
             Payment Evidence (required)
           </span>
           <p className="text-[10px] text-muted-foreground">
             We verify with the bank before placing your order. Prefer pasting the
-            transaction ID for fastest confirmation.
+            transaction number for fastest confirmation.
           </p>
 
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/80 hover:border-primary rounded-xl p-3.5 text-center cursor-pointer transition-colors bg-background">
@@ -1283,12 +1286,20 @@ export function ShopCheckoutForm({
                 alt="Receipt Preview"
                 className="object-contain max-h-32 rounded-lg"
               />
+              <button
+                type="button"
+                onClick={clearEvidenceFile}
+                className="absolute top-1.5 right-1.5 size-7 rounded-full bg-background/95 border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
+                aria-label="Remove screenshot"
+              >
+                <X className="size-3.5" />
+              </button>
             </div>
           )}
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
             <div className="h-px bg-border flex-1" />
-            <span className="text-[11px]">or enter transaction ID</span>
+            <span className="text-[11px]">or enter transaction number</span>
             <div className="h-px bg-border flex-1" />
           </div>
 
@@ -1296,10 +1307,11 @@ export function ShopCheckoutForm({
             type="text"
             value={paymentEvidenceText}
             onChange={(e) => setPaymentEvidenceText(e.target.value)}
-            placeholder="E.g., CBE/FT2409... or Telebirr SMS ref"
+            placeholder="E.g., FT2409… or Telebirr transaction number"
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"
           />
         </div>
+        )}
       </div>
 
       {/* Final Action Button */}

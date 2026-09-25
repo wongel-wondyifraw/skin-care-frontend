@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { ShoppingBag, ShoppingCart } from "lucide-react";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { useShopCart } from "@/components/shop/ShopCartProvider";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
@@ -15,6 +16,7 @@ import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopProductDescription } from "@/components/shop/ShopProductDescription";
 import { shopFetch, ShopApiError } from "@/lib/shop-api";
 import { activeDiscountPercent } from "@/lib/shop-pricing";
+import { flyImageToCart } from "@/lib/fly-to-cart";
 
 export default function ShopProductDetailPage() {
   const params = useParams();
@@ -53,6 +55,10 @@ export default function ShopProductDetailPage() {
 
   function handleAddToCart() {
     if (!product) return;
+    const img = document.querySelector<HTMLElement>(
+      `[data-detail-image="${product.id}"]`,
+    );
+    flyImageToCart(img, product.image);
     addItem({
       productId: product.id,
       name: product.name,
@@ -122,7 +128,10 @@ export default function ShopProductDetailPage() {
       <div className="space-y-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
         <ShopBackLink href="/shop" label="Catalog" />
 
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
+        <div
+          className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted"
+          data-detail-image={product.id}
+        >
           <Image
             src={product.image}
             alt={product.name}
@@ -180,18 +189,20 @@ export default function ShopProductDetailPage() {
             <Button
               type="button"
               variant="outline"
-              className="h-11"
+              className="h-11 gap-2"
               disabled={out}
               onClick={handleAddToCart}
             >
+              <ShoppingCart className="size-4" />
               {out ? "Unavailable" : added ? "Added" : "Add to cart"}
             </Button>
             <Button
               type="button"
-              className="h-11"
+              className="h-11 gap-2"
               disabled={out}
               onClick={handleOrderNow}
             >
+              <ShoppingBag className="size-4" />
               Order
             </Button>
           </div>

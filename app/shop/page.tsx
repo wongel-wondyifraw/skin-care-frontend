@@ -146,7 +146,7 @@ export default function ShopCatalogPage() {
   );
 
   const handleAddToCart = useCallback(
-    (prod: ShopProduct) => {
+    (prod: ShopProduct, _sourceEl?: HTMLElement | null) => {
       addItem({
         productId: prod.id,
         name: prod.name,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 
@@ -12,9 +12,37 @@ type TgBackButton = {
   offClick: (cb: () => void) => void;
 };
 
+type TgBottom = {
+  hide?: () => void;
+  setParams?: (p: Record<string, unknown>) => void;
+  isVisible?: boolean;
+  text?: string;
+};
+
 function getBackButton(webApp: unknown): TgBackButton | null {
   const bb = (webApp as { BackButton?: TgBackButton } | null)?.BackButton;
   return bb && typeof bb.show === "function" ? bb : null;
+}
+
+function hideBottomButtons(webApp: unknown) {
+  const wa = webApp as {
+    MainButton?: TgBottom;
+    SecondaryButton?: TgBottom;
+    BottomButton?: TgBottom;
+  };
+  for (const btn of [wa.MainButton, wa.SecondaryButton, wa.BottomButton]) {
+    if (!btn) continue;
+    try {
+      btn.setParams?.({
+        is_visible: false,
+        isVisible: false,
+        text: "",
+      });
+      btn.hide?.();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 function isShopHome(pathname: string) {
@@ -30,12 +58,14 @@ function isCheckoutFlow(pathname: string) {
 /**
  * Syncs Telegram Mini App chrome:
  * - Native header BackButton on nested pages
+ * - Force-hide bottom My Orders / Cart Main+Secondary buttons
  * - Closing confirmation on cart/checkout
  */
 export function ShopTelegramChrome() {
   const pathname = usePathname() || "/shop";
   const router = useRouter();
   const { webApp } = useShopAuth();
+  const hideTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!webApp) return;
@@ -57,24 +87,23 @@ export function ShopTelegramChrome() {
       else back.show();
     }
 
-    // Ensure Telegram bottom buttons stay hidden (nav lives in the app header)
+    hideBottomButtons(webApp);
+    // Re-hide shortly after — Telegram sometimes re-shows cached MainButton
+    hideTimer.current = setInterval(() => hideBottomButtons(webApp), 800);
+    const stopSoon = window.setTimeout(() => {
+      if (hideTimer.current) {
+        clearInterval(hideTimer.current);
+        hideTimer.current = null;
+      }
+    }, 5000);
+
     try {
       const wa = webApp as {
-        MainButton?: { hide?: () => void; setParams?: (p: Record<string, unknown>) => void };
-        SecondaryButton?: {
-          hide?: () => void;
-          setParams?: (p: Record<string, unknown>) => void;
-        };
         enableClosingConfirmation?: () => void;
         disableClosingConfirmation?: () => void;
         setHeaderColor?: (c: string) => void;
         themeParams?: { bg_color?: string; secondary_bg_color?: string };
       };
-      wa.MainButton?.setParams?.({ is_visible: false });
-      wa.SecondaryButton?.setParams?.({ is_visible: false });
-      wa.MainButton?.hide?.();
-      wa.SecondaryButton?.hide?.();
-
       if (isCheckoutFlow(pathname) && wa.enableClosingConfirmation) {
         wa.enableClosingConfirmation();
       } else if (wa.disableClosingConfirmation) {
@@ -90,6 +119,8 @@ export function ShopTelegramChrome() {
     }
 
     return () => {
+      window.clearTimeout(stopSoon);
+      if (hideTimer.current) clearInterval(hideTimer.current);
       if (back) {
         try {
           back.offClick(onBack);
@@ -98,6 +129,7 @@ export function ShopTelegramChrome() {
           // ignore
         }
       }
+      hideBottomButtons(webApp);
       try {
         (webApp as { disableClosingConfirmation?: () => void })
           .disableClosingConfirmation?.();

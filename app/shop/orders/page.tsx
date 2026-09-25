@@ -76,9 +76,12 @@ export default function ShopOrdersPage() {
   // Payment modal state
   const [payingOrder, setPayingOrder] = useState<ShopOrder | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
-  const [payMethod, setPayMethod] = useState<"bank" | "telebirr">("bank");
+  const [payMethod, setPayMethod] = useState<"bank" | "telebirr" | null>(null);
   const [payEvidenceText, setPayEvidenceText] = useState("");
   const [payEvidenceFile, setPayEvidenceFile] = useState<File | null>(null);
+  const [payEvidencePreview, setPayEvidencePreview] = useState<string | null>(
+    null,
+  );
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [paymentModalError, setPaymentModalError] = useState<string | null>(
     null,
@@ -154,6 +157,11 @@ export default function ShopOrdersPage() {
     e.preventDefault();
     if (!payingOrder) return;
 
+    if (!payMethod) {
+      setPaymentModalError("Select CBE Bank or Telebirr first.");
+      return;
+    }
+
     setSubmittingPayment(true);
     setPaymentModalError(null);
 
@@ -171,7 +179,7 @@ export default function ShopOrdersPage() {
 
       if (!evidence) {
         setPaymentModalError(
-          "Please upload a screenshot or enter your transaction reference number.",
+          "Please upload a screenshot or enter your transaction number.",
         );
         setSubmittingPayment(false);
         return;
@@ -186,7 +194,9 @@ export default function ShopOrdersPage() {
         prev.map((o) => (o.id === payingOrder.id ? { ...o, ...updated } : o)),
       );
       setPayingOrder(null);
+      setPayMethod(null);
       setPayEvidenceFile(null);
+      setPayEvidencePreview(null);
       setPayEvidenceText("");
     } catch (err) {
       setPaymentModalError(
@@ -334,11 +344,6 @@ export default function ShopOrdersPage() {
                       {order.pickupLocation.description.trim()}
                     </p>
                   )}
-                  {isPickup && order.pickupLocation?.address?.trim() && (
-                    <p className="text-[10px] text-muted-foreground leading-snug">
-                      {order.pickupLocation.address.trim()}
-                    </p>
-                  )}
                   <div className="flex justify-between items-center">
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="size-3" /> Expected
@@ -482,8 +487,8 @@ export default function ShopOrdersPage() {
                 </button>
               </div>
 
-              {/* Account details */}
-              {payMethod === "bank" ? (
+              {/* Account details — after method selected */}
+              {payMethod === "bank" && (
                 <div className="rounded-xl border border-border bg-card p-3 text-xs space-y-2 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
                     <span className="font-semibold text-foreground">
@@ -506,7 +511,9 @@ export default function ShopOrdersPage() {
                     </span>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {payMethod === "telebirr" && (
                 <div className="rounded-xl border border-border bg-card p-3 text-xs space-y-2 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
                     <span className="font-semibold text-foreground">
@@ -531,27 +538,59 @@ export default function ShopOrdersPage() {
                 </div>
               )}
 
-              {/* Evidence inputs */}
+              {/* Evidence inputs — after method selected */}
+              {payMethod && (
               <div className="space-y-2 text-xs">
                 <label className="font-semibold text-foreground block">
-                  Payment Evidence (Screenshot or Reference)
+                  Payment Evidence (Screenshot or Transaction Number)
                 </label>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) =>
-                    setPayEvidenceFile(e.target.files?.[0] || null)
-                  }
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setPayEvidenceFile(file);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () =>
+                        setPayEvidencePreview(String(reader.result || ""));
+                      reader.readAsDataURL(file);
+                    } else {
+                      setPayEvidencePreview(null);
+                    }
+                  }}
                   className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                 />
+                {payEvidencePreview && (
+                  <div className="relative w-fit">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={payEvidencePreview}
+                      alt="Receipt"
+                      className="max-h-28 rounded-lg border border-border"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 size-6 rounded-full bg-background border border-border text-xs font-bold"
+                      onClick={() => {
+                        setPayEvidenceFile(null);
+                        setPayEvidencePreview(null);
+                      }}
+                      aria-label="Remove screenshot"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <input
                   type="text"
                   value={payEvidenceText}
                   onChange={(e) => setPayEvidenceText(e.target.value)}
-                  placeholder="Or enter transaction reference / SMS text"
+                  placeholder="Or enter transaction number"
                   className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
+              )}
 
               {paymentModalError && (
                 <p className="text-xs text-destructive">{paymentModalError}</p>
@@ -562,7 +601,13 @@ export default function ShopOrdersPage() {
                   type="button"
                   variant="outline"
                   className="flex-1 rounded-xl"
-                  onClick={() => setPayingOrder(null)}
+                  onClick={() => {
+                    setPayingOrder(null);
+                    setPayMethod(null);
+                    setPayEvidenceFile(null);
+                    setPayEvidencePreview(null);
+                    setPayEvidenceText("");
+                  }}
                 >
                   Cancel
                 </Button>

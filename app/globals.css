@@ -104,3 +104,20 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes cart-icon-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.cart-icon-bump {
+  animation: cart-icon-bump 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
