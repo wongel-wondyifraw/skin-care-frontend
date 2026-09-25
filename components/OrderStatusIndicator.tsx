@@ -33,7 +33,7 @@ const STATUS_META: Record<
     icon: "text-blue-600",
   },
   confirmed: {
-    label: "Verified",
+    label: "Half confirmed",
     Icon: ShieldCheck,
     wrap: "bg-emerald-50 text-emerald-700 border border-emerald-200/50",
     icon: "text-emerald-600",
@@ -79,20 +79,34 @@ export function OrderStatusIndicator({
   paymentStage?: PaymentStage | null;
 }) {
   const meta = STATUS_META[status] ?? STATUS_META.pending;
-  const { Icon } = meta;
   const method = methodLabel(paymentMethod);
 
   let label = meta.label;
-  if (status === "confirmed") {
-    if (paymentStage === "full") {
-      label = method ? `Fully paid · ${method}` : "Fully paid";
+  let wrap = meta.wrap;
+  let icon = meta.icon;
+  let Icon = meta.Icon;
+
+  if (
+    status === "confirmed" ||
+    (status === "delivered" &&
+      (paymentStage === "partial" || paymentStage === "full"))
+  ) {
+    const isFull = paymentStage === "full";
+    const payLabel = isFull ? "Full confirmed" : "Half confirmed";
+    if (status === "delivered") {
+      label = method
+        ? `Delivered · ${payLabel} · ${method}`
+        : `Delivered · ${payLabel}`;
     } else {
-      label = method ? `Verified · ${method}` : "Verified";
+      label = method ? `${payLabel} · ${method}` : payLabel;
     }
-  } else if (status === "delivered" && paymentStage === "full" && method) {
-    label = `Delivered · ${method}`;
-  } else if (status === "delivered" && paymentStage === "partial") {
-    label = method ? `Delivered · half paid · ${method}` : "Delivered · half paid";
+    if (isFull) {
+      wrap = "bg-teal-50 text-teal-800 border border-teal-200/50";
+      icon = "text-teal-600";
+      Icon = Check;
+    }
+  } else if (status === "delivered") {
+    label = method ? `Delivered · ${method}` : "Delivered";
   }
 
   if (!showLabel) {
@@ -102,11 +116,11 @@ export function OrderStatusIndicator({
         aria-label={label}
         className={cn(
           "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
-          meta.wrap,
+          wrap,
           className,
         )}
       >
-        <Icon className={cn("size-3.5 stroke-[2.25]", meta.icon)} aria-hidden />
+        <Icon className={cn("size-3.5 stroke-[2.25]", icon)} aria-hidden />
       </span>
     );
   }
@@ -115,11 +129,11 @@ export function OrderStatusIndicator({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
-        meta.wrap,
+        wrap,
         className,
       )}
     >
-      <Icon className={cn("size-3 stroke-[2.25]", meta.icon)} aria-hidden />
+      <Icon className={cn("size-3 stroke-[2.25]", icon)} aria-hidden />
       {label}
     </span>
   );

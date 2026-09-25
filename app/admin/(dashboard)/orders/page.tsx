@@ -12,7 +12,6 @@ import {
   CreditCard,
   MapPin,
   Truck,
-  Loader2,
   Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -96,35 +95,6 @@ function paymentMethodLabel(method?: string | null) {
 }
 
 type StatusFilter = "all" | OrderStatus;
-
-function VerifyEtBadge({ status }: { status?: string | null }) {
-  if (!status || status === "skipped") return null;
-
-  if (status === "verified") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-700 mt-1">
-        <ShieldCheck className="size-3" /> Verified
-      </span>
-    );
-  }
-  if (status === "queued") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 mt-1">
-        <Loader2 className="size-3 animate-spin" /> Verifying…
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 mt-1">
-      <X className="size-3" /> Failed: {status}
-    </span>
-  );
-}
-
-function unitCost(cost: number | string) {
-  const n = typeof cost === "number" ? cost : Number(cost);
-  return Number.isNaN(n) ? 0 : n;
-}
 
 export default function OrdersPage() {
   const toast = useToast();
@@ -440,7 +410,7 @@ export default function OrdersPage() {
             { value: "all", label: "All statuses" },
             { value: "awaiting_payment", label: "Awaiting Payment" },
             { value: "payment_submitted", label: "Payment Submitted" },
-            { value: "confirmed", label: "Verified" },
+            { value: "confirmed", label: "Half / Full confirmed" },
             { value: "delivered", label: "Delivered" },
             { value: "cancelled", label: "Cancelled" },
           ]}
@@ -584,13 +554,16 @@ export default function OrdersPage() {
                           {paymentMethodLabel(o.paymentMethod) && (
                             <p className="text-[11px] text-muted-foreground">
                               via {paymentMethodLabel(o.paymentMethod)}
-                              {o.paymentStage === "partial" ? " · half verified" : ""}
-                              {o.paymentStage === "full" ? " · fully paid" : ""}
                             </p>
                           )}
                           {!o.paymentMethod && o.paymentStage === "partial" && (
                             <p className="text-[11px] text-amber-700">
-                              Half verified
+                              Half confirmed
+                            </p>
+                          )}
+                          {!o.paymentMethod && o.paymentStage === "full" && (
+                            <p className="text-[11px] text-emerald-700">
+                              Full confirmed
                             </p>
                           )}
                         </div>
@@ -599,15 +572,14 @@ export default function OrdersPage() {
                         {formatDateTime(o.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col items-start">
-                          <OrderStatusIndicator
-                            status={o.status}
-                            showLabel
-                            paymentMethod={o.paymentMethod}
-                            paymentStage={o.paymentStage}
-                          />
-                          <VerifyEtBadge status={o.verifyEtStatus} />
-                        </div>
+                        <OrderStatusIndicator
+                          status={o.status}
+                          showLabel
+                          paymentMethod={
+                            o.balancePaymentMethod || o.paymentMethod
+                          }
+                          paymentStage={o.paymentStage}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <OrderActions order={o} />
@@ -643,15 +615,14 @@ export default function OrdersPage() {
                         {o.customer?.phone}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <OrderStatusIndicator
-                        status={o.status}
-                        showLabel
-                        paymentMethod={o.paymentMethod}
-                        paymentStage={o.paymentStage}
-                      />
-                      <VerifyEtBadge status={o.verifyEtStatus} />
-                    </div>
+                    <OrderStatusIndicator
+                      status={o.status}
+                      showLabel
+                      paymentMethod={
+                        o.balancePaymentMethod || o.paymentMethod
+                      }
+                      paymentStage={o.paymentStage}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-xl">
@@ -749,12 +720,26 @@ export default function OrdersPage() {
                   </b>
                 </p>
                 <p>
+                  <span className="text-muted-foreground">Status:</span>{" "}
+                  <OrderStatusIndicator
+                    status={evidenceTarget.status}
+                    showLabel
+                    paymentMethod={
+                      evidenceTarget.balancePaymentMethod ||
+                      evidenceTarget.paymentMethod
+                    }
+                    paymentStage={evidenceTarget.paymentStage}
+                  />
+                </p>
+                <p>
                   <span className="text-muted-foreground">Method:</span>{" "}
                   <b className="capitalize font-mono">
-                    {evidenceTarget.paymentMethod
-                      ? paymentMethodLabel(evidenceTarget.paymentMethod) ||
-                        evidenceTarget.paymentMethod
-                      : "Direct Submission"}
+                    {paymentMethodLabel(
+                      evidenceTarget.balancePaymentMethod ||
+                        evidenceTarget.paymentMethod,
+                    ) ||
+                      evidenceTarget.paymentMethod ||
+                      "Direct Submission"}
                   </b>
                 </p>
               </div>
@@ -779,26 +764,51 @@ export default function OrdersPage() {
                       "No evidence text recorded"}
                   </div>
                 )}
+                {evidenceTarget.balancePaymentEvidence && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-xs font-semibold text-foreground block">
+                      Remaining payment evidence:
+                    </span>
+                    {evidenceTarget.balancePaymentEvidence.startsWith(
+                      "http",
+                    ) ? (
+                      <div className="rounded-xl overflow-hidden border border-border bg-black/5 max-h-72 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={evidenceTarget.balancePaymentEvidence}
+                          alt="Balance receipt"
+                          className="object-contain max-h-72 w-full"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-xl border border-border bg-background font-mono text-xs break-words">
+                        {evidenceTarget.balancePaymentEvidence}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <DialogFooter className="flex-row sm:justify-between gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => rejectPayment(evidenceTarget)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  Reject
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => verifyPayment(evidenceTarget)}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
-                >
-                  <ShieldCheck className="size-4" />
-                  Verify & Confirm Order
-                </Button>
-              </DialogFooter>
+              {evidenceTarget.status === "payment_submitted" && (
+                <DialogFooter className="flex-row sm:justify-between gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => rejectPayment(evidenceTarget)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => verifyPayment(evidenceTarget)}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
+                  >
+                    <ShieldCheck className="size-4" />
+                    Verify & Confirm Order
+                  </Button>
+                </DialogFooter>
+              )}
             </div>
           )}
         </DialogContent>
