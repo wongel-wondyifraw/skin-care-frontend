@@ -525,6 +525,11 @@ export default function ShopOrdersPage() {
                     ETB
                   </span>
                 </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Use a transfer made within the last{" "}
+                  <span className="font-semibold text-foreground">48 hours</span>
+                  . Older receipts are rejected.
+                </p>
               </div>
               <button
                 type="button"

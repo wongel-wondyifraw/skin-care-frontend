@@ -6,6 +6,9 @@ import { shopFetchSupportPhone } from "@/lib/shop-api";
 import { cn } from "@/lib/utils";
 
 const POS_KEY = "shop-support-fab-pos";
+/** Deep brown — matches cart fly-dot */
+const FAB_BROWN = "#3d2314";
+const DRAG_THRESHOLD_PX = 10;
 
 type Pos = { x: number; y: number };
 
@@ -25,8 +28,10 @@ export function ShopFloatingSupport() {
   const [pos, setPos] = useState<Pos | null>(null);
   const dragging = useRef(false);
   const moved = useRef(false);
+  const startPtr = useRef({ x: 0, y: 0 });
   const offset = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     shopFetchSupportPhone()
@@ -47,9 +52,7 @@ export function ShopFloatingSupport() {
     } catch {
       // ignore
     }
-    setPos(
-      clampPos(window.innerWidth - 64, window.innerHeight - 80),
-    );
+    setPos(clampPos(window.innerWidth - 64, window.innerHeight - 80));
   }, []);
 
   useEffect(() => {
@@ -81,17 +84,27 @@ export function ShopFloatingSupport() {
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!pos) return;
+      e.stopPropagation();
       dragging.current = true;
       moved.current = false;
+      startPtr.current = { x: e.clientX, y: e.clientY };
       offset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      btnRef.current?.setPointerCapture?.(e.pointerId);
     },
     [pos],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
-    moved.current = true;
+    const dist = Math.hypot(
+      e.clientX - startPtr.current.x,
+      e.clientY - startPtr.current.y,
+    );
+    if (dist >= DRAG_THRESHOLD_PX) {
+      moved.current = true;
+    }
+    if (!moved.current) return;
+    e.preventDefault();
     const next = clampPos(
       e.clientX - offset.current.x,
       e.clientY - offset.current.y,
@@ -99,19 +112,29 @@ export function ShopFloatingSupport() {
     setPos(next);
   }, []);
 
-  const onPointerUp = useCallback(() => {
+  const endPointer = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
     dragging.current = false;
-    setPos((p) => {
-      if (p) {
-        try {
-          sessionStorage.setItem(POS_KEY, JSON.stringify(p));
-        } catch {
-          // ignore
+    try {
+      btnRef.current?.releasePointerCapture?.(e.pointerId);
+    } catch {
+      // ignore
+    }
+    if (!moved.current) {
+      setOpen((prev) => !prev);
+    } else {
+      setPos((p) => {
+        if (p) {
+          try {
+            sessionStorage.setItem(POS_KEY, JSON.stringify(p));
+          } catch {
+            // ignore
+          }
         }
-      }
-      return p;
-    });
+        return p;
+      });
+    }
+    moved.current = false;
   }, []);
 
   if (!pos) return null;
@@ -121,19 +144,24 @@ export function ShopFloatingSupport() {
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 flex flex-col items-end pointer-events-none"
+      className="fixed z-[80] flex flex-col items-end"
       style={{ left: pos.x, top: pos.y, width: 48 }}
     >
       {open && (
         <div
           className={cn(
-            "pointer-events-auto absolute right-0 w-72 sm:w-80 rounded-2xl border border-border bg-card/95 backdrop-blur-md p-4 shadow-2xl space-y-3 animate-in fade-in duration-200",
-            popupAbove ? "bottom-14 slide-in-from-bottom-2" : "top-14 slide-in-from-top-2",
+            "absolute right-0 w-72 sm:w-80 rounded-2xl border border-border bg-card p-4 shadow-2xl space-y-3 animate-in fade-in duration-200",
+            popupAbove
+              ? "bottom-14 slide-in-from-bottom-2"
+              : "top-14 slide-in-from-top-2",
           )}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="size-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <div
+                className="size-9 rounded-xl flex items-center justify-center shrink-0 text-white"
+                style={{ backgroundColor: FAB_BROWN }}
+              >
                 <Phone className="size-4" />
               </div>
               <div>
@@ -156,13 +184,14 @@ export function ShopFloatingSupport() {
           </div>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Questions about your order, products, or payment? Our support team is
-            here to assist you.
+            Questions about your order, products, or payment? Our support team
+            is here to assist you.
           </p>
 
           <a
             href={`tel:${phone}`}
-            className="w-full h-9 rounded-xl bg-primary/90 hover:bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors"
+            className="w-full h-9 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-opacity hover:opacity-90"
+            style={{ backgroundColor: FAB_BROWN }}
           >
             <Phone className="size-3.5" />
             <span>Call {phone}</span>
@@ -171,24 +200,21 @@ export function ShopFloatingSupport() {
       )}
 
       <button
+        ref={btnRef}
         type="button"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={(e) => {
-          onPointerUp();
-          if (!moved.current) setOpen((prev) => !prev);
-          try {
-            (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-          } catch {
-            // ignore
-          }
-        }}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
         className={cn(
-          "pointer-events-auto size-12 rounded-full flex items-center justify-center shadow-md transition-colors cursor-grab active:cursor-grabbing touch-none select-none",
-          open
-            ? "bg-muted text-foreground border border-border"
-            : "bg-primary/20 text-primary ring-2 ring-primary/15 hover:bg-primary/30",
+          "size-12 rounded-full flex items-center justify-center shadow-lg transition-opacity cursor-grab active:cursor-grabbing select-none",
+          "text-white hover:opacity-95 active:opacity-90",
+          open && "outline outline-2 outline-offset-2 outline-[#3d2314]",
         )}
+        style={{
+          backgroundColor: FAB_BROWN,
+          touchAction: "none",
+        }}
         aria-label="Contact Customer Support"
         title="Drag to move · tap to open"
       >

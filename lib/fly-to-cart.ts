@@ -1,6 +1,9 @@
 "use client";
 
-/** Compact fly-to-cart: image shrinks to a dot and travels to the header cart icon. */
+const FLY_MS = 1100;
+const DOT_BROWN = "#3d2314";
+
+/** Compact fly-to-cart: image shrinks to a deep-brown dot and travels to the header cart. */
 export function flyImageToCart(
   sourceEl: HTMLElement | null,
   imageUrl?: string | null,
@@ -19,8 +22,9 @@ export function flyImageToCart(
   const startSize = Math.min(56, from.width, from.height);
   const startX = from.left + from.width / 2 - startSize / 2;
   const startY = from.top + from.height / 2 - startSize / 2;
-  const endX = to.left + to.width / 2 - 6;
-  const endY = to.top + to.height / 2 - 6;
+  const endDot = 14;
+  const endX = to.left + to.width / 2 - endDot / 2;
+  const endY = to.top + to.height / 2 - endDot / 2;
 
   const ghost = document.createElement("div");
   ghost.setAttribute("aria-hidden", "true");
@@ -34,32 +38,41 @@ export function flyImageToCart(
     overflow: "hidden",
     zIndex: "9999",
     pointerEvents: "none",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-    background: "var(--primary, #0ea5e9)",
+    boxShadow: "0 8px 24px rgba(61,35,20,0.35)",
+    background: DOT_BROWN,
     backgroundImage: imageUrl ? `url(${imageUrl})` : "none",
     backgroundSize: "cover",
     backgroundPosition: "center",
     willChange: "transform, opacity, border-radius, width, height",
-    transition:
-      "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease, border-radius 0.45s ease, width 0.55s ease, height 0.55s ease",
+    transition: [
+      `transform ${FLY_MS}ms cubic-bezier(0.22, 0.8, 0.28, 1)`,
+      `opacity ${FLY_MS}ms ease`,
+      `border-radius ${FLY_MS * 0.85}ms ease`,
+      `width ${FLY_MS}ms ease`,
+      `height ${FLY_MS}ms ease`,
+      `background ${FLY_MS * 0.5}ms ease`,
+      `box-shadow ${FLY_MS}ms ease`,
+    ].join(", "),
   } as CSSStyleDeclaration);
 
   document.body.appendChild(ghost);
 
-  // Force layout then animate
   void ghost.offsetWidth;
   const dx = endX - startX;
   const dy = endY - startY;
-  ghost.style.width = "12px";
-  ghost.style.height = "12px";
+  ghost.style.width = `${endDot}px`;
+  ghost.style.height = `${endDot}px`;
   ghost.style.borderRadius = "9999px";
-  ghost.style.transform = `translate(${dx}px, ${dy}px) scale(0.35)`;
-  ghost.style.opacity = "0.35";
+  ghost.style.backgroundImage = "none";
+  ghost.style.background = DOT_BROWN;
+  ghost.style.boxShadow = "0 2px 8px rgba(61,35,20,0.55)";
+  ghost.style.transform = `translate(${dx}px, ${dy}px)`;
+  ghost.style.opacity = "1";
 
   cart.classList.add("cart-icon-bump");
-  window.setTimeout(() => cart.classList.remove("cart-icon-bump"), 420);
+  window.setTimeout(() => cart.classList.remove("cart-icon-bump"), FLY_MS + 80);
 
   window.setTimeout(() => {
     ghost.remove();
-  }, 600);
+  }, FLY_MS + 80);
 }

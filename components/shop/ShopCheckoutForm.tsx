@@ -30,7 +30,6 @@ import {
   shopFetchPickupLocations,
   shopFetchPaymentInfo,
   shopUploadReceipt,
-  shopFetchOrder,
   shopReverseGeocode,
   ShopApiError,
   type FulfilmentType,
@@ -394,14 +393,19 @@ export function ShopCheckoutForm({
 
       setCreatedOrders(orders);
 
+      // Spot-only: backend only returns orders when payment is already verified
       const first = orders[0];
-      const needsPoll =
-        first?.status === "payment_submitted" ||
-        first?.verifyEtStatus === "queued";
-
-      if (needsPoll && first?.id) {
-        const finalOrders = await pollUntilPaymentResolved(orders);
-        setCreatedOrders(finalOrders);
+      if (
+        !first ||
+        first.status !== "confirmed" ||
+        (first.verifyEtStatus &&
+          first.verifyEtStatus !== "verified" &&
+          first.verifyEtStatus !== "skipped")
+      ) {
+        throw new ShopApiError(
+          "Payment was not verified. No order was placed. Please try again.",
+          400,
+        );
       }
 
       setVerifyPhase("confirmed");
@@ -422,53 +426,6 @@ export function ShopCheckoutForm({
     } finally {
       setSubmitting(false);
     }
-  }
-
-  /** Poll order while webhook / background verify finishes */
-  async function pollUntilPaymentResolved(
-    orders: ShopOrder[],
-  ): Promise<ShopOrder[]> {
-    const primaryId = orders[0]?.id;
-    if (!primaryId) return orders;
-
-    const failStatuses = new Set([
-      "failed",
-      "amount_mismatch",
-      "receiver_mismatch",
-      "duplicate",
-      "unsupported",
-      "skipped",
-    ]);
-    const deadline = Date.now() + 90_000;
-
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        const latest = await shopFetchOrder(primaryId);
-        if (latest.status === "confirmed" || latest.verifyEtStatus === "verified") {
-          return orders.map((o) =>
-            o.id === latest.id
-              ? latest
-              : { ...o, status: "confirmed", verifyEtStatus: "verified" },
-          );
-        }
-        if (
-          latest.verifyEtStatus &&
-          failStatuses.has(latest.verifyEtStatus)
-        ) {
-          throw new ShopApiError(
-            `Payment verification failed: ${latest.verifyEtStatus}. Please try again with a valid transaction.`,
-            400,
-          );
-        }
-      } catch (err) {
-        if (err instanceof ShopApiError && err.status === 400) throw err;
-        // transient network — keep polling
-      }
-    }
-
-    // Soft success: order exists under review; don't fail the whole checkout
-    return orders;
   }
 
   if (verifyPhase === "verifying" || verifyPhase === "confirmed") {
@@ -1066,6 +1023,14 @@ export function ShopCheckoutForm({
         <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
           3. Pay 50% Advance ({advanceAmount.toFixed(2)} ETB)
         </label>
+        <p className="text-[11px] text-muted-foreground leading-relaxed -mt-1">
+          Transfer the advance{" "}
+          <span className="font-semibold text-foreground">
+            within 48 hours
+          </span>{" "}
+          of placing this order. Older receipts will be rejected — use a fresh
+          CBE or Telebirr payment for this checkout.
+        </p>
 
         {/* Bank / Telebirr Buttons with Logos and Official Colors */}
         <div className="grid grid-cols-2 gap-3">

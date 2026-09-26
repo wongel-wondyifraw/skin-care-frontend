@@ -64,12 +64,8 @@ export function ShopHeader() {
               <ShoppingCart className="size-4" />
               {itemCount > 0 && (
                 <span
-                  className={cn(
-                    "absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold",
-                    checkoutActive
-                      ? "bg-primary-foreground text-primary"
-                      : "bg-primary text-primary-foreground",
-                  )}
+                  className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-white"
+                  style={{ backgroundColor: "#3d2314" }}
                 >
                   {itemCount > 99 ? "99+" : itemCount}
                 </span>
