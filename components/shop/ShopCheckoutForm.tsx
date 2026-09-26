@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Truck,
   Store,
@@ -40,9 +41,33 @@ import {
 import { shopSalePrice } from "@/lib/shop-pricing";
 import { cn } from "@/lib/utils";
 import { LocationSearch, type LocationSuggestion } from "@/components/location/LocationSearch";
-import { DeliveryRouteMap } from "@/components/location/DeliveryRouteMap";
-import { LocationPinMap } from "@/components/location/LocationPinMap";
 import { useToast } from "@/components/ToastProvider";
+
+const DeliveryRouteMap = dynamic(
+  () =>
+    import("@/components/location/DeliveryRouteMap").then(
+      (m) => m.DeliveryRouteMap,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-xl bg-muted/60" />
+    ),
+  },
+);
+
+const LocationPinMap = dynamic(
+  () =>
+    import("@/components/location/LocationPinMap").then(
+      (m) => m.LocationPinMap,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-xl bg-muted/60" />
+    ),
+  },
+);
 
 type CheckoutLine = {
   productId: string;
@@ -409,7 +434,6 @@ export function ShopCheckoutForm({
       }
 
       setVerifyPhase("confirmed");
-      await new Promise((r) => setTimeout(r, 900));
       setOrderCompleted(true);
       onSuccess?.();
     } catch (err) {
@@ -1224,7 +1248,9 @@ export function ShopCheckoutForm({
           </span>
           <p className="text-[10px] text-muted-foreground">
             We verify with the bank before placing your order. Prefer pasting the
-            transaction number for fastest confirmation.
+            transaction number for fastest confirmation. If you upload a photo,
+            use <span className="font-semibold text-foreground">natural light</span>{" "}
+            so the receipt text is clear and readable.
           </p>
 
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/80 hover:border-primary rounded-xl p-3.5 text-center cursor-pointer transition-colors bg-background">

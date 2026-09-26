@@ -9,7 +9,7 @@ import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopCheckoutForm } from "@/components/shop/ShopCheckoutForm";
 import type { ShopProduct } from "@/components/shop/ShopProductTile";
-import { shopFetch, ShopApiError } from "@/lib/shop-api";
+import { shopFetchCached, ShopApiError } from "@/lib/shop-api";
 
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
@@ -36,8 +36,9 @@ export default function CheckoutClient() {
     setError(null);
     (async () => {
       try {
-        const data = await shopFetch<ShopProduct>(
+        const data = await shopFetchCached<ShopProduct>(
           `/shop/products/${productId}`,
+          45_000,
         );
         if (!cancelled) setProduct(data);
       } catch (err) {

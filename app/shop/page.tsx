@@ -46,33 +46,15 @@ export default function ShopCatalogPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [c, s] = await Promise.all([
+        const [c, s, trending] = await Promise.all([
           shopFetchCached<RefItem[]>("/shop/categories", 120_000),
           shopFetchCached<RefItem[]>("/shop/skin-types", 120_000),
+          shopFetchCached<ShopProduct[]>("/shop/trending", 60_000),
         ]);
         if (cancelled) return;
         setCategories(c);
         setSkinTypes(s);
-      } catch {
-        // filters can still work without refs
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [status]);
-
-  useEffect(() => {
-    if (status !== "ready") return;
-    let cancelled = false;
-    setTrendingLoading(true);
-    (async () => {
-      try {
-        const items = await shopFetchCached<ShopProduct[]>(
-          "/shop/trending",
-          60_000,
-        );
-        if (!cancelled) setTrendingPool(items);
+        setTrendingPool(trending);
       } catch {
         if (!cancelled) setTrendingPool([]);
       } finally {

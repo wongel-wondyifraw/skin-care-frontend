@@ -14,7 +14,7 @@ import type { ShopProduct } from "@/components/shop/ShopProductTile";
 import { ShopPrice, ShopSaleBadge } from "@/components/shop/ShopPrice";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { ShopProductDescription } from "@/components/shop/ShopProductDescription";
-import { shopFetch, ShopApiError } from "@/lib/shop-api";
+import { shopFetchCached, ShopApiError } from "@/lib/shop-api";
 import { activeDiscountPercent } from "@/lib/shop-pricing";
 import { flyImageToCart } from "@/lib/fly-to-cart";
 
@@ -36,7 +36,10 @@ export default function ShopProductDetailPage() {
     setError(null);
     (async () => {
       try {
-        const data = await shopFetch<ShopProduct>(`/shop/products/${id}`);
+        const data = await shopFetchCached<ShopProduct>(
+          `/shop/products/${id}`,
+          45_000,
+        );
         if (!cancelled) setProduct(data);
       } catch (err) {
         if (!cancelled) {

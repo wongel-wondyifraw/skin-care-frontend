@@ -34,11 +34,26 @@ export function ShopFloatingSupport() {
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    shopFetchSupportPhone()
-      .then((res) => {
-        if (res?.supportPhone) setPhone(res.supportPhone);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    function load() {
+      shopFetchSupportPhone()
+        .then((res) => {
+          const p = res?.supportPhone?.trim();
+          if (!cancelled && p && p !== "66XXXXXXXX") {
+            setPhone(p);
+          } else if (!cancelled && p) {
+            setPhone(p);
+          }
+        })
+        .catch(() => {});
+    }
+    load();
+    // Retry once after auth/session may be ready
+    const t = window.setTimeout(load, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, []);
 
   useEffect(() => {

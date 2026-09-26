@@ -14,9 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OrderStatusIndicator } from "@/components/OrderStatusIndicator";
 import { Money } from "@/components/Money";
-import { ShopSupportContact } from "@/components/shop/ShopSupportContact";
 import { useShopAuth } from "@/components/shop/ShopAuthProvider";
 import { ShopBackLink } from "@/components/shop/ShopBackLink";
 import { cn } from "@/lib/utils";
@@ -358,12 +356,37 @@ export default function ShopOrdersPage() {
                       <p className="text-sm font-semibold line-clamp-1">
                         {order.product?.name ?? "Product"}
                       </p>
-                      <OrderStatusIndicator
-                        status={order.status}
-                        showLabel
-                        paymentMethod={order.paymentMethod}
-                        paymentStage={order.paymentStage}
-                      />
+                      {(order.paymentMethod === "bank" ||
+                        order.paymentMethod === "telebirr" ||
+                        order.balancePaymentMethod) && (
+                        <span
+                          className="relative size-7 shrink-0 rounded-md overflow-hidden bg-white border border-border/80"
+                          title={
+                            (order.balancePaymentMethod ||
+                              order.paymentMethod) === "telebirr"
+                              ? "Telebirr"
+                              : "CBE"
+                          }
+                          aria-label={
+                            (order.balancePaymentMethod ||
+                              order.paymentMethod) === "telebirr"
+                              ? "Paid via Telebirr"
+                              : "Paid via CBE"
+                          }
+                        >
+                          <Image
+                            src={
+                              (order.balancePaymentMethod ||
+                                order.paymentMethod) === "telebirr"
+                                ? "/telebirr.png"
+                                : "/cbe.png"
+                            }
+                            alt=""
+                            fill
+                            className="object-contain p-0.5"
+                          />
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -498,9 +521,6 @@ export default function ShopOrdersPage() {
           })}
         </ul>
       )}
-
-      {/* Support number reminder */}
-      <ShopSupportContact className="mt-4" />
 
       {/* Pay advance / remaining modal */}
       {payingOrder && (
@@ -657,6 +677,13 @@ export default function ShopOrdersPage() {
                 <label className="font-semibold text-foreground block">
                   Payment Evidence (Screenshot or Transaction Number)
                 </label>
+                <p className="text-[10px] text-muted-foreground -mt-0.5">
+                  If uploading a photo, use{" "}
+                  <span className="font-semibold text-foreground">
+                    natural light
+                  </span>{" "}
+                  so the receipt is clear and readable.
+                </p>
                 <input
                   type="file"
                   accept="image/*"
