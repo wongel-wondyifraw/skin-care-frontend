@@ -196,7 +196,11 @@ export default function ShopProductDetailPage() {
               disabled={out}
               onClick={handleAddToCart}
             >
-              <ShoppingCart className="size-4" />
+              <ShoppingCart
+                className="size-4 shrink-0 text-current"
+                strokeWidth={2.25}
+                aria-hidden
+              />
               {out ? "Unavailable" : added ? "Added" : "Add to cart"}
             </Button>
             <Button
@@ -205,7 +209,11 @@ export default function ShopProductDetailPage() {
               disabled={out}
               onClick={handleOrderNow}
             >
-              <ShoppingBag className="size-4" />
+              <ShoppingBag
+                className="size-4 shrink-0 text-current"
+                strokeWidth={2.25}
+                aria-hidden
+              />
               Order
             </Button>
           </div>

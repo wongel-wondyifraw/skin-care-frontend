@@ -111,7 +111,13 @@ function ShopProductTileComponent({
               onAddToCart(prod, img);
             }}
           >
-            {!out && <ShoppingCart className="size-3.5 shrink-0" />}
+            {!out && (
+              <ShoppingCart
+                className="size-3.5 shrink-0 text-current"
+                strokeWidth={2.25}
+                aria-hidden
+              />
+            )}
             {out ? "Unavailable" : "Add"}
           </Button>
           <Button
@@ -121,7 +127,11 @@ function ShopProductTileComponent({
             disabled={out}
             onClick={() => onOrderNow(prod)}
           >
-            <ShoppingBag className="size-3.5 shrink-0" />
+            <ShoppingBag
+              className="size-3.5 shrink-0 text-current"
+              strokeWidth={2.25}
+              aria-hidden
+            />
             Order
           </Button>
         </div>
