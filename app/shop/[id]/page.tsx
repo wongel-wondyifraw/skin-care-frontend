@@ -62,16 +62,19 @@ export default function ShopProductDetailPage() {
       `[data-detail-image="${product.id}"]`,
     );
     flyImageToCart(img, product.image);
-    addItem({
-      productId: product.id,
-      name: product.name,
-      brand: product.brand,
-      image: product.image,
-      price: Number(product.price) || 0,
-      discountPercent: Number(product.discountPercent) || 0,
-      discountEndsAt: product.discountEndsAt ?? null,
-      stock: product.stock,
-    });
+    addItem(
+      {
+        productId: product.id,
+        name: product.name,
+        brand: product.brand,
+        image: product.image,
+        price: Number(product.price) || 0,
+        discountPercent: Number(product.discountPercent) || 0,
+        discountEndsAt: product.discountEndsAt ?? null,
+        stock: product.stock,
+      },
+      6,
+    );
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1200);
   }
@@ -79,7 +82,7 @@ export default function ShopProductDetailPage() {
   function handleOrderNow() {
     if (!product) return;
     router.push(
-      `/shop/checkout?productId=${encodeURIComponent(product.id)}&qty=1`,
+      `/shop/checkout?productId=${encodeURIComponent(product.id)}&qty=6`,
     );
   }
 
@@ -173,11 +176,9 @@ export default function ShopProductDetailPage() {
             {product.category?.name && (
               <Badge variant="secondary">{product.category.name}</Badge>
             )}
-            {skins.map((name) => (
-              <Badge key={name} variant="outline">
-                {name}
-              </Badge>
-            ))}
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              MOQ: 6 units min
+            </Badge>
           </div>
         </div>
 

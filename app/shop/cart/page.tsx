@@ -109,6 +109,29 @@ export default function ShopCartPage() {
         </Button>
       </div>
 
+      {/* Wholesale Free Delivery Progress Banner */}
+      {(() => {
+        const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
+        const freeDelivery = totalUnits >= 12;
+        const remaining = 12 - totalUnits;
+        return (
+          <div
+            className={`rounded-xl border px-3.5 py-2.5 text-xs flex items-center justify-between ${
+              freeDelivery
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                : "border-primary/20 bg-primary/5 text-foreground"
+            }`}
+          >
+            <span>
+              {freeDelivery
+                ? "🎉 You qualified for FREE Delivery! (12+ items in cart)"
+                : `🚚 Add ${remaining} more item${remaining > 1 ? "s" : ""} to unlock FREE Delivery!`}
+            </span>
+            <span className="font-semibold">{totalUnits} items</span>
+          </div>
+        );
+      })()}
+
       {/* Items list */}
       <ul className="space-y-3">
         {items.map((item) => (
@@ -158,7 +181,7 @@ export default function ShopCartPage() {
                   size="icon-sm"
                   variant="outline"
                   className="size-7 rounded-lg"
-                  disabled={item.quantity <= 1}
+                  disabled={item.quantity <= 6}
                   onClick={() =>
                     setQuantity(item.productId, item.quantity - 1)
                   }
@@ -182,6 +205,9 @@ export default function ShopCartPage() {
                 >
                   <Plus className="size-3" />
                 </Button>
+                <span className="text-[10px] text-muted-foreground ml-1">
+                  (min. 6)
+                </span>
               </div>
             </div>
           </li>

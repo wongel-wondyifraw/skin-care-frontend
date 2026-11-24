@@ -91,7 +91,7 @@ function ShopProductTileComponent({
           {prod.name}
         </Link>
         <p className="text-[10px] text-muted-foreground line-clamp-1">
-          {[prod.category?.name, skinLabels(prod)].filter(Boolean).join(" · ")}
+          {[prod.category?.name, "MOQ: 6 units"].filter(Boolean).join(" · ")}
         </p>
 
         <div className="mt-auto grid grid-cols-2 gap-1.5 pt-1">

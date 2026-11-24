@@ -14,9 +14,9 @@ import { shopFetchCached, ShopApiError } from "@/lib/shop-api";
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
   const productId = searchParams.get("productId") ?? "";
-  const qtyParam = Number(searchParams.get("qty") ?? "1");
+  const qtyParam = Number(searchParams.get("qty") ?? "6");
   const quantity =
-    Number.isFinite(qtyParam) && qtyParam > 0 ? Math.floor(qtyParam) : 1;
+    Number.isFinite(qtyParam) && qtyParam >= 6 ? Math.floor(qtyParam) : 6;
 
   const { status, error: authError, retry, customer } = useShopAuth();
   const [product, setProduct] = useState<ShopProduct | null>(null);

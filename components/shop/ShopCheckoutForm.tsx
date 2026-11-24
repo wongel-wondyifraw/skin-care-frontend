@@ -251,18 +251,25 @@ export function ShopCheckoutForm({
     (sum, line) => sum + shopSalePrice(line) * line.quantity,
     0,
   );
-  const activeDeliveryFee = fulfilmentType === "pickup" ? 0 : deliveryFee;
+  const totalUnits = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const isFreeDelivery = totalUnits >= 12;
+  const activeDeliveryFee =
+    fulfilmentType === "pickup" || isFreeDelivery ? 0 : deliveryFee;
   const grandTotal = subtotal + activeDeliveryFee;
   const advanceAmount = Math.round(grandTotal * 0.5 * 100) / 100;
   const remainingAmount = grandTotal - advanceAmount;
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const formattedExpectedDate = tomorrow.toLocaleDateString("en-US", {
-    weekday: "short",
+  const expMin = new Date();
+  expMin.setDate(expMin.getDate() + 3);
+  const expMax = new Date();
+  expMax.setDate(expMax.getDate() + 5);
+  const formattedExpectedDate = `3–5 days (${expMin.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-  });
+  })} – ${expMax.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })})`;
 
   // Rotate status hints while Verify.ET is running
   useEffect(() => {
@@ -847,13 +854,29 @@ export function ShopCheckoutForm({
               <div className="flex items-center justify-between">
                 <span>Delivery fee</span>
                 <span className="font-semibold text-primary">
-                  {calculatingFee
-                    ? "…"
-                    : outOfBounds
-                      ? "Out of range"
-                      : `${deliveryFee.toFixed(2)} ETB`}
+                  {calculatingFee ? (
+                    "…"
+                  ) : outOfBounds ? (
+                    "Out of range"
+                  ) : isFreeDelivery ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="line-through text-muted-foreground font-normal">
+                        {deliveryFee.toFixed(2)} ETB
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                        FREE (12+ items)
+                      </span>
+                    </span>
+                  ) : (
+                    `${deliveryFee.toFixed(2)} ETB`
+                  )}
                 </span>
               </div>
+              {!calculatingFee && !outOfBounds && !isFreeDelivery && totalUnits < 12 && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-md px-2 py-1">
+                  💡 Add {12 - totalUnits} more item{12 - totalUnits > 1 ? "s" : ""} to unlock FREE delivery!
+                </p>
+              )}
               {!calculatingFee &&
                 !outOfBounds &&
                 customerLat &&
@@ -1012,7 +1035,9 @@ export function ShopCheckoutForm({
               <span>Delivery Charge</span>
               <span className="font-medium text-foreground">
                 {activeDeliveryFee === 0
-                  ? "FREE"
+                  ? isFreeDelivery && fulfilmentType === "delivery"
+                    ? "FREE (12+ items)"
+                    : "FREE"
                   : `${activeDeliveryFee.toFixed(2)} ETB`}
               </span>
             </div>

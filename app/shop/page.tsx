@@ -129,16 +129,19 @@ export default function ShopCatalogPage() {
 
   const handleAddToCart = useCallback(
     (prod: ShopProduct, _sourceEl?: HTMLElement | null) => {
-      addItem({
-        productId: prod.id,
-        name: prod.name,
-        brand: prod.brand,
-        image: prod.image,
-        price: Number(prod.price) || 0,
-        discountPercent: Number(prod.discountPercent) || 0,
-        discountEndsAt: prod.discountEndsAt ?? null,
-        stock: prod.stock,
-      });
+      addItem(
+        {
+          productId: prod.id,
+          name: prod.name,
+          brand: prod.brand,
+          image: prod.image,
+          price: Number(prod.price) || 0,
+          discountPercent: Number(prod.discountPercent) || 0,
+          discountEndsAt: prod.discountEndsAt ?? null,
+          stock: prod.stock,
+        },
+        6,
+      );
       setCartFlashId(prod.id);
       window.setTimeout(() => setCartFlashId(null), 1200);
     },
@@ -148,7 +151,7 @@ export default function ShopCatalogPage() {
   const handleOrderNow = useCallback(
     (prod: ShopProduct) => {
       router.push(
-        `/shop/checkout?productId=${encodeURIComponent(prod.id)}&qty=1`,
+        `/shop/checkout?productId=${encodeURIComponent(prod.id)}&qty=6`,
       );
     },
     [router],

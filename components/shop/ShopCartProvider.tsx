@@ -134,8 +134,8 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
   }, [items, hydrated]);
 
   const addItem = useCallback(
-    (item: Omit<CartItem, "quantity">, quantity = 1) => {
-      const qty = Math.max(1, Math.floor(quantity));
+    (item: Omit<CartItem, "quantity">, quantity = 6) => {
+      const qty = Math.max(6, Math.floor(quantity));
       setItems((prev) => {
         const existing = prev.find((p) => p.productId === item.productId);
         if (existing) {
@@ -161,10 +161,11 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
   const setQuantity = useCallback((productId: string, quantity: number) => {
     const qty = Math.floor(quantity);
     setItems((prev) => {
-      if (qty < 1) return prev.filter((p) => p.productId !== productId);
+      if (qty <= 0) return prev.filter((p) => p.productId !== productId);
+      const wholesaleQty = Math.max(6, qty);
       return prev.map((p) =>
         p.productId === productId
-          ? { ...p, quantity: Math.min(p.stock, qty) }
+          ? { ...p, quantity: Math.min(p.stock, wholesaleQty) }
           : p,
       );
     });

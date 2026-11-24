@@ -86,15 +86,16 @@ function formatDate(value: string) {
 }
 
 function formatExpected(value?: string | null) {
-  if (!value) return "Tomorrow";
+  if (!value) return "3–5 days";
   try {
-    return new Date(value).toLocaleDateString(undefined, {
+    const formatted = new Date(value).toLocaleDateString(undefined, {
       weekday: "short",
       month: "short",
       day: "numeric",
     });
+    return `3–5 days (${formatted})`;
   } catch {
-    return "Tomorrow";
+    return "3–5 days";
   }
 }
 

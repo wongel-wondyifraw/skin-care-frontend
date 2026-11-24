@@ -47,6 +47,8 @@ export function ShopProductFilters({
         size="sm"
         className="w-32"
       />
+      {/* Skin type filter hidden for wholesale pivot */}
+      {/*
       <CustomSelect
         value={filterSkinType}
         onValueChange={onFilterSkinTypeChange}
@@ -55,6 +57,7 @@ export function ShopProductFilters({
         size="sm"
         className="w-32"
       />
+      */}
     </div>
   );
 }

@@ -138,7 +138,7 @@ export function ShopTrendingBanner({
                   className="h-7 rounded-full border-white/50 bg-transparent px-3 text-[11px] text-white hover:bg-white/15 hover:text-white"
                 >
                   <Link
-                    href={`/shop/checkout?productId=${encodeURIComponent(product.id)}&qty=1`}
+                    href={`/shop/checkout?productId=${encodeURIComponent(product.id)}&qty=6`}
                   >
                     Order
                   </Link>
